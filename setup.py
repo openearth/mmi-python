@@ -35,7 +35,7 @@ setup(
     long_description=long_description,
 
     # The project URL.
-    url='http://github.com/pfmoore/sampleproject',
+    url='http://github.com/SiggyF/python-mmi',
 
     # Author details
     author='Fedor Baart',
