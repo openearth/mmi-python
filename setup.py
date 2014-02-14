@@ -83,7 +83,7 @@ setup(
 
     install_requires = [
         'numpy',
-        'zmq'
+        'pyzmq'
     ],
     # To provide executable scripts, use entry points in preference to the
     # "scripts" keyword. Entry points provide cross-platform support and allow
