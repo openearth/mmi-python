@@ -5,7 +5,7 @@ import numpy as np
 import zmq
 
 def send_array(socket, A, flags=0, copy=False, track=False, metadata=None):
-    """send a numpy array with metadata"""
+    """send a numpy array with metadata over zmq"""
     md = dict(
         dtype=str(A.dtype),
         shape=A.shape,
@@ -26,7 +26,7 @@ def send_array(socket, A, flags=0, copy=False, track=False, metadata=None):
 
 
 def recv_array(socket, flags=0, copy=False, track=False):
-    """recv a metadata and an optional numpy array"""
+    """recv a metadata and an optional numpy array from a zmq socket"""
     md = socket.recv_json(flags=flags)
     if socket.getsockopt(zmq.RCVMORE):
         msg = socket.recv(flags=flags, copy=copy, track=track)
