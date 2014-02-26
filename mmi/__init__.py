@@ -32,7 +32,7 @@ def recv_array(socket, flags=0, copy=False, track=False):
         msg = socket.recv(flags=flags, copy=copy, track=track)
         buf = buffer(msg)
         A = np.frombuffer(buf, dtype=md['dtype'])
-        A.reshape(md['shape'])
+        A = A.reshape(md['shape'])
     else:
         # No array expected
         A = None
