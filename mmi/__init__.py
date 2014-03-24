@@ -29,7 +29,8 @@ def send_array(socket, A, flags=0, copy=False, track=False, metadata=None):
     try:
         # If an array has a fill value assume it's an array with missings
         # store the fill_Value in the metadata and fill the array before sending.
-        md['fill_value'] = A.fill_value
+        # asscalar should work for scalar, 0d array or nd array of size 1
+        md['fill_value'] = np.asscalar(A.fill_value)
         A = A.filled()
     except AttributeError:
         # no masked array, nothing to do
