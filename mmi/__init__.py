@@ -1,4 +1,8 @@
-__version__ = '0.1.2'
+"""
+Model Message Interface
+"""
+
+__version__ = '0.1.4'
 import datetime
 
 import numpy as np
