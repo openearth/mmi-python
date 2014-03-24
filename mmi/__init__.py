@@ -41,7 +41,7 @@ def recv_array(socket, flags=0, copy=False, track=False):
         A = np.frombuffer(buf, dtype=md['dtype'])
         A = A.reshape(md['shape'])
         if 'fill_value' in md:
-            A = np.ma.masked_where(A, md['fill_value'])
+            A = np.ma.masked_equal(A, md['fill_value'])
     else:
         # No array expected
         A = None
