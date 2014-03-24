@@ -11,6 +11,13 @@ def send_array(socket, A, flags=0, copy=False, track=False, metadata=None):
         shape=A.shape,
         timestamp=datetime.datetime.now().isoformat()
     )
+    try:
+        md['fill_value'] = A.fill_value
+        A = A.filled()
+    except AttributeError:
+        # no masked array, nothing to do
+        pass
+
     if metadata:
         md.update(metadata)
     if A is None:
@@ -33,6 +40,8 @@ def recv_array(socket, flags=0, copy=False, track=False):
         buf = buffer(msg)
         A = np.frombuffer(buf, dtype=md['dtype'])
         A = A.reshape(md['shape'])
+        if 'fill_value' in md:
+            A = np.ma.masked_where(A, md['fill_value'])
     else:
         # No array expected
         A = None
