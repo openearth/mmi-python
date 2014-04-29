@@ -80,8 +80,11 @@ setup(
     package_data={
         # 'sample': ['*.dat'],
     },
-
-    install_requires = [
+    setup_requires=[
+        'sphinx',
+        'sphinx_rtd_theme'
+    ],
+    install_requires=[
         'numpy',
         'pyzmq'
     ],
