@@ -1,20 +1,37 @@
 #!/usr/bin/env python
+"""
+Usage:
+  mmi-runner <engine> <configfile> [-o <outputvar>...] [-g <globalvar>...] [--interval <interval>] [--disable-logger]
+  mmi-runner -h | --help
+
+Positional arguments:
+  engine model  engine
+  configfile    model configuration file
+
+Optional arguments:
+  -h, --help               show this help message and exit
+  --interval <interval>    publish results every <interval> timesteps
+  -o <outputvar>           output variables, will be broadcasted each <interval> timestep
+  -g <globalvar>           global variables, will be send if requested
+  --disable-logger         do not inject logger into the BMI library
 
 """
-subgrid model runner
-"""
+
+import logging
+
 import datetime
 import logging
 import itertools
 import argparse
+
+import docopt
 
 import zmq
 import zmq.eventloop.zmqstream
 from zmq.eventloop import ioloop
 import numpy as np
 
-import python_subgrid.wrapper
-import python_subgrid.plotting
+import bmi.wrapper
 from mmi import send_array, recv_array
 
 logging.basicConfig()
@@ -24,7 +41,8 @@ logger.setLevel(logging.DEBUG)
 
 ioloop.install()
 
-
+OUTPUTVARS=[]
+INITVARS=[]
 def parse_args():
     argparser = argparse.ArgumentParser()
     argparser.add_argument(
@@ -54,7 +72,7 @@ def parse_args():
 # http://zeromq.github.io/pyzmq/serialization.html
 
 
-def process_incoming(subgrid, poller, rep, pull, data):
+def process_incoming(model, poller, rep, pull, data):
     """
     process incoming messages
 
@@ -75,7 +93,7 @@ def process_incoming(subgrid, poller, rep, pull, data):
                 # TODO: support same operators as MPI_ops here....,
                 # TODO: reduce before apply
                 action = metadata['action']
-                arr = subgrid.get_nd(metadata['name'], sliced=True)
+                arr = model.get_var(metadata['name'])
                 S = tuple(slice(*x) for x in action['slice'])
                 print(repr(arr[S]))
                 if action['operator'] == 'setitem':
@@ -88,11 +106,10 @@ def process_incoming(subgrid, poller, rep, pull, data):
     else:
         logger.info("No incoming data")
 
+def main():
+    arguments = docopt.docopt(__doc__)
 
-if __name__ == '__main__':
-
-    arguments = parse_args()
-
+    logger.info(arguments)
     # make a socket that replies to message with the grid
 
     # You probably want to read:
@@ -118,42 +135,44 @@ if __name__ == '__main__':
     poller.register(rep, zmq.POLLIN)
     poller.register(pull, zmq.POLLIN)
 
-    python_subgrid.wrapper.logger.setLevel(logging.WARN)
+    bmi.wrapper.logger.setLevel(logging.WARN)
 
     # for replying to grid requests
-    with python_subgrid.wrapper.SubgridWrapper(mdu=arguments.ini) as subgrid:
-        subgrid.initmodel()
+    with bmi.wrapper.BMIWrapper(engine=arguments['<engine>'],
+                                configfile=arguments['<configfile>']) as model:
+        model.initialize()
 
         # Start a reply process in the background, with variables available
         # after initialization, sent all at once as py_obj
         data = {
-            var: subgrid.get_nd(var, sliced=True)
+            var: model.get_var(var)
             for var
-            in arguments.globalvariables
+            in arguments['-g']
         }
-        # add the quad_grid for easy plotting
-        data["quad_grid"] = python_subgrid.plotting.make_quad_grid(subgrid)
-        process_incoming(subgrid, poller, rep, pull, data)
+        process_incoming(model, poller, rep, pull, data)
 
         # Keep on counting indefinitely
         counter = itertools.count()
 
         for i in counter:
 
-            # Any requests?
-            while paused:
-                process_incoming(subgrid, poller, rep, pull, data)
+            process_incoming(model, poller, rep, pull, data)
 
             # Calculate
-            subgrid.update(-1)
+            model.update(-1)
 
             # check counter
-            if (i % arguments.interval):
+
+            if arguments.get('--interval') and (i % arguments['--interval']):
                 continue
 
-            for key in arguments.outputvariables:
-                value = subgrid.get_nd(key, sliced=True)
+            for key in arguments['-o']:
+                value = model.get_var(key)
                 metadata = {'name': key, 'iteration': i}
                 # 4ms for 1M doubles
                 logger.info("sending {}".format(metadata))
                 send_array(pub, value, metadata=metadata)
+
+if __name__ == '__main__':
+    main()
+
