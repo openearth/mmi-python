@@ -8,7 +8,7 @@ import datetime
 import numpy as np
 import zmq
 
-def send_array(socket, A, flags=0, copy=False, track=False, metadata=None):
+def send_array(socket, A=None, metadata=None, flags=0, copy=False, track=False):
     """send a numpy array with metadata over zmq"""
 
     # create a metadata dictionary for the message

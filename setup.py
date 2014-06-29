@@ -93,7 +93,8 @@ setup(
     # pip to create the appropriate form of executable for the target platform.
     entry_points={
         'console_scripts': [
-            'mmi-runner=mmi.tools:main',
+            'mmi-runner=mmi.runner:main',
+            'mmi-curl=mmi.curl:main',
         ],
     },
 )

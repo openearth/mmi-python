@@ -14,6 +14,7 @@ Optional arguments:
   -o <outputvar>           output variables, will be broadcasted each <interval> timestep
   -g <globalvar>           global variables, will be send if requested
   --disable-logger         do not inject logger into the BMI library
+  --pause                  start in paused mode, send update messages to progress
 
 """
 
@@ -53,24 +54,29 @@ def process_incoming(model, poller, rep, pull, data):
     data is a dict with several arrays
     """
     # Check for new messages
-    items = poller.poll(100)
+    items = poller.poll(10)
     for sock, n in items:
         for i in range(n):
             A, metadata = recv_array(sock)
             logger.info("got metadata: %s", metadata)
-            if "get_var" in metadata:
+            var = None
+            if "update" in metadata:
+                dt = float(metadata["update"])
+                logger.info("updating with dt %s", dt)
+                model.update(dt)
+                metadata["dt"] = dt
+            elif "get_var" in metadata:
                 name = metadata["get_var"]
                 logger.info("sending variable %s", name)
                 # temporary implementation
                 var = model.get_var(name)
-                metadata = {'name': name}
-                send_array(rep, var, metadata=metadata)
+                metadata['name'] = name
                 # assert socket is req socket
             elif "set_var" in metadata:
                 name = metadata["set_var"]
                 logger.info("setting variable %s", name)
                 arr = model.set_var(name, A)
-                # todo assert socket is pull socket
+                metadata["name"] = name
             elif "operator" in metadata:
                 # TODO: support same operators as MPI_ops here....,
                 # TODO: reduce before apply
@@ -81,9 +87,11 @@ def process_incoming(model, poller, rep, pull, data):
                     arr[S] = data
                 elif action['operator'] == 'add':
                     arr[S] += data
-
             else:
                 logger.warn("got message from unknown socket {}".format(sock))
+            if sock.socket_type == zmq.REP:
+                # reply
+                send_array(rep, var, metadata=metadata)
     else:
         logger.info("No incoming data")
 
@@ -138,9 +146,10 @@ def main():
         for i in counter:
 
             process_incoming(model, poller, rep, pull, data)
+            logger.info("i %s", i)
 
-            # Calculate
-            model.update(-1)
+            # paused ...
+            model.update()
 
             # check counter
 
