@@ -7,6 +7,7 @@ import datetime
 
 import numpy as np
 import zmq
+import zlib
 
 def send_array(socket, A=None, metadata=None, flags=0, copy=False, track=False):
     """send a numpy array with metadata over zmq"""
@@ -42,8 +43,8 @@ def send_array(socket, A=None, metadata=None, flags=0, copy=False, track=False):
 
     # send json, followed by array
     socket.send_json(md, flags | zmq.SNDMORE)
-    # Make a copy if required and pass along the buffer
-    msg = buffer(np.ascontiguousarray(A))
+    # Make a copy if required and pass along the memoryview
+    msg = memoryview(np.ascontiguousarray(A))
     socket.send(msg, flags, copy=copy, track=track)
     return
 

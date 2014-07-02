@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 Usage:
-  mmi-curl <url> [--request=<command>] [--metadata=<metadata>]
+  mmi-curl <url> [--request=<command>] [--metadata=<json>]
   mmi-curl -h | --help
 
 Positional arguments:
@@ -9,8 +9,9 @@ Positional arguments:
 
 Optional arguments:
   -h, --help      show this help message and exit
+  --metadata=<json>  send a message with metadata [default: {}]
   --request=<command>   use the following method of connection (REQ|SUB|PUSH) [default: SUB]
-  --metadata=<metadata> send a message with metadata [default: {}]
+
 """
 import logging
 import json

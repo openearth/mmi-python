@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 Usage:
-  mmi-runner <engine> <configfile> [-o <outputvar>...] [-g <globalvar>...] [--interval <interval>] [--disable-logger]
+  mmi-runner <engine> <configfile> [-o <outputvar>...] [-g <globalvar>...] [--interval <interval>] [--disable-logger] [--pause]
   mmi-runner -h | --help
 
 Positional arguments:
@@ -60,6 +60,7 @@ def process_incoming(model, poller, rep, pull, data):
             A, metadata = recv_array(sock)
             logger.info("got metadata: %s", metadata)
             var = None
+            # bmi actions
             if "update" in metadata:
                 dt = float(metadata["update"])
                 logger.info("updating with dt %s", dt)
@@ -77,6 +78,10 @@ def process_incoming(model, poller, rep, pull, data):
                 logger.info("setting variable %s", name)
                 arr = model.set_var(name, A)
                 metadata["name"] = name
+            # custom actions
+            elif "remote" in metadata:
+                assert metadata["remote"] in {"play", "stop", "pause", "rewind"}
+                model.state = metadata["remote"]
             elif "operator" in metadata:
                 # TODO: support same operators as MPI_ops here....,
                 # TODO: reduce before apply
@@ -92,12 +97,10 @@ def process_incoming(model, poller, rep, pull, data):
             if sock.socket_type == zmq.REP:
                 # reply
                 send_array(rep, var, metadata=metadata)
-    else:
-        logger.info("No incoming data")
 
 def main():
     arguments = docopt.docopt(__doc__)
-
+    paused = arguments['--pause']
     logger.info(arguments)
     # make a socket that replies to message with the grid
 
@@ -130,6 +133,9 @@ def main():
     with bmi.wrapper.BMIWrapper(engine=arguments['<engine>'],
                                 configfile=arguments['<configfile>']) as model:
         model.initialize()
+        model.state = "play"
+        if arguments["--pause"]:
+            model.state = "pause"
 
         # Start a reply process in the background, with variables available
         # after initialization, sent all at once as py_obj
@@ -145,7 +151,12 @@ def main():
 
         for i in counter:
 
-            process_incoming(model, poller, rep, pull, data)
+            while model.state == "pause":
+                # keep waiting for messages when paused
+                process_incoming(model, poller, rep, pull, data)
+            else:
+                # otherwise process messages once and continue
+                process_incoming(model, poller, rep, pull, data)
             logger.info("i %s", i)
 
             # paused ...
