@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 Usage:
-  mmi-runner <engine> <configfile> [-o <outputvar>...] [-g <globalvar>...] [--interval <interval>] [--disable-logger] [--pause]
+  mmi-runner <engine> <configfile> [-o <outputvar>...] [-g <globalvar>...] [--interval <interval>] [--disable-logger] [--pause] [--mpi]
   mmi-runner -h | --help
 
 Positional arguments:
@@ -15,6 +15,7 @@ Optional arguments:
   -g <globalvar>           global variables, will be send if requested
   --disable-logger         do not inject logger into the BMI library
   --pause                  start in paused mode, send update messages to progress
+  --mpi                    add rank number to port
 
 """
 
@@ -73,6 +74,16 @@ def process_incoming(model, poller, rep, pull, data):
                 var = model.get_var(name)
                 metadata['name'] = name
                 # assert socket is req socket
+            elif "get_var_count" in metadata:
+                # temporary implementation
+                n = model.get_var_count()
+                metadata['get_var_count'] = n
+                # assert socket is req socket
+            elif "get_var_name" in metadata:
+                i = int(metadata["get_var_name"])
+                name = model.get_var_name(i)
+                metadata['get_var_name'] = name
+                # assert socket is req socket
             elif "set_var" in metadata:
                 name = metadata["set_var"]
                 logger.info("setting variable %s", name)
@@ -104,6 +115,21 @@ def main():
     logger.info(arguments)
     # make a socket that replies to message with the grid
 
+    ports = {
+        "REQ": 5600,
+        "PULL": 5700,
+        "PUB": 5800
+    }
+
+    if arguments['--mpi']:
+        import mpi4py.MPI
+        comm = mpi4py.MPI.COMM_WORLD
+        rank = comm.Get_rank()
+
+        for port in ports:
+            ports[port] += rank
+
+
     # You probably want to read:
     # http://zguide.zeromq.org/page:all
 
@@ -111,16 +137,16 @@ def main():
     # Socket to handle init data
     rep = context.socket(zmq.REP)
     rep.bind(
-        "tcp://*:{port}".format(port=5556)
+        "tcp://*:{port}".format(port=ports["REQ"])
     )
     pull = context.socket(zmq.PULL)
     pull.connect(
-        "tcp://localhost:{port}".format(port=5557)
+        "tcp://localhost:{port}".format(port=ports["PULL"])
     )
     # for sending model messages
     pub = context.socket(zmq.PUB)
     pub.bind(
-        "tcp://*:{port}".format(port=5558)
+        "tcp://*:{port}".format(port=ports["PUB"])
     )
 
     poller = zmq.Poller()
@@ -175,5 +201,6 @@ def main():
                 send_array(pub, value, metadata=metadata)
 
 if __name__ == '__main__':
+
     main()
 
