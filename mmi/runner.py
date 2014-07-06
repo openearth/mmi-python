@@ -89,6 +89,19 @@ def process_incoming(model, poller, rep, pull, data):
                 logger.info("setting variable %s", name)
                 arr = model.set_var(name, A)
                 metadata["name"] = name
+            elif "get_current_time" in metadata:
+                metadata["get_current_time"]
+                t = model.get_current_time()
+                metadata['get_current_time'] = t
+            elif "get_end_time" in metadata:
+                metadata["get_end_time"]
+                t = model.get_end_time()
+                metadata['get_end_time'] = t
+            elif "get_start_time" in metadata:
+                metadata["get_start_time"]
+                t = model.get_start_time()
+                metadata['get_start_time'] = t
+                # assert socket is req socket
             # custom actions
             elif "remote" in metadata:
                 assert metadata["remote"] in {"play", "stop", "pause", "rewind"}
@@ -129,7 +142,7 @@ def main():
         for port in ports:
             ports[port] += rank
 
-
+    logger.info("Using ports %s", ports)
     # You probably want to read:
     # http://zguide.zeromq.org/page:all
 
