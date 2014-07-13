@@ -87,7 +87,9 @@ setup(
     install_requires=[
         'numpy',
         'pyzmq',
-        'docopt'
+        'docopt',
+        'bmi',
+        'tornado'
 
     ],
     # To provide executable scripts, use entry points in preference to the
