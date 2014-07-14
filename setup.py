@@ -99,6 +99,7 @@ setup(
         'console_scripts': [
             'mmi-runner=mmi.runner:main',
             'mmi-curl=mmi.curl:main',
+            'mmi-tracker=mmi.tracker:main',
         ],
     },
 )
