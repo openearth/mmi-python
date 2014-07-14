@@ -21,21 +21,19 @@ import tornado.websocket
 import tornado.web
 import tornado.ioloop
 
-ctx = zmq.Context()
 
 class WebSocket(tornado.websocket.WebSocketHandler):
     def __init__(self, application, request, **kwargs):
+        # self.zmqstream = kwargs.pop('zmqstream')
         tornado.websocket.WebSocketHandler.__init__(self, application, request,
                                             **kwargs)
         self.metadata = None
-        self.zmqstream = None
 
-    def open(self):
-        logger.debug("websocket opened")
-        self.socket = ctx.socket(zmq.PUB)
-        self.socket.bind("tcp://*:5600")
-        self.stream = ZMQStream(self.socket)
-
+    def initialize(self, zmqstream, database):
+        self.zmqstream = zmqstream
+        self.database = database
+    def open(self, key):
+        logger.debug("websocket opened for key %s", key)
     def on_message(self, message):
         # unicode, metadata message
         logger.debug("got message %s", message)
@@ -59,15 +57,29 @@ class WebSocket(tornado.websocket.WebSocketHandler):
         logger.debug("websocket closed")
 
 class MainHandler(tornado.web.RequestHandler):
+    def initialize(self, database):
+        self.database = database
     def get(self):
+        self.write("%s" % (self.database,))
+
+class ModelHandler(tornado.web.RequestHandler):
+    def initialize(self, database):
+        self.database = database
+    def post(self, key):
         # TODO: show a list of running models
-        self.write("Hello, world")
+        self.database[key] = json.loads(self.request.body)
 
 def main():
+    ctx = zmq.Context()
+    socket = ctx.socket(zmq.PUB)
+    socket.bind("tcp://*:5600")
+    zmqstream = ZMQStream(socket)
+    database = {}
     application = tornado.web.Application([
-        (r"/", MainHandler),
+        (r"/", MainHandler, {"database": database}),
         # todo use an id scheme to attach to multiple models
-        (r"/model", WebSocket),
+        (r"/models/(.*)", ModelHandler, {"database": database}),
+        (r"/mmi/(.*)", WebSocket, {"zmqstream": zmqstream, "database": database}),
     ])
     application.listen(8888)
     tornado.ioloop.IOLoop.instance().start()
