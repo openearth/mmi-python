@@ -96,6 +96,17 @@ def process_incoming(model, poller, rep, pull, data):
                 count = metadata["count"]
                 model.set_var_slice(name, start, count, A)
                 metadata["name"] = name  # !?
+            elif "set_var_index" in metadata:
+                name = metadata["set_var_index"]
+                logger.debug("setting variable %s using index index", name)
+                index = metadata["index"]
+                # TODO: test if this is fast enough.
+                # Otherwise move to BMI ++ but that is
+                # a bit of a burden on implementers
+                var = model.get_var(name).copy()
+                var.flat[index] = A
+                model.set_var(name, var)
+                metadata["name"] = name  # !?
             elif "get_current_time" in metadata:
                 metadata["get_current_time"]
                 t = model.get_current_time()
