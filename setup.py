@@ -86,7 +86,11 @@ setup(
     ],
     install_requires=[
         'numpy',
-        'pyzmq'
+        'pyzmq',
+        'docopt',
+        'bmi',
+        'tornado'
+
     ],
     # To provide executable scripts, use entry points in preference to the
     # "scripts" keyword. Entry points provide cross-platform support and allow
@@ -95,6 +99,7 @@ setup(
         'console_scripts': [
             'mmi-runner=mmi.runner:main',
             'mmi-curl=mmi.curl:main',
+            'mmi-tracker=mmi.tracker:main',
         ],
     },
 )

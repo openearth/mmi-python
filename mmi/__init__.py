@@ -9,7 +9,7 @@ import numpy as np
 import zmq
 import zlib
 
-def send_array(socket, A=None, metadata=None, flags=0, copy=False, track=False):
+def send_array(socket, A=None, metadata=None, flags=0, copy=False, track=False, compress=None):
     """send a numpy array with metadata over zmq"""
 
     # create a metadata dictionary for the message
@@ -63,3 +63,5 @@ def recv_array(socket, flags=0, copy=False, track=False):
         # No array expected
         A = None
     return A, md
+
+
