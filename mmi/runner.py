@@ -39,7 +39,7 @@ from mmi import send_array, recv_array
 logging.basicConfig()
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 ioloop.install()
 
@@ -59,17 +59,17 @@ def process_incoming(model, poller, rep, pull, data):
     for sock, n in items:
         for i in range(n):
             A, metadata = recv_array(sock)
-            logger.info("got metadata: %s", metadata)
+            logger.debug("got metadata: %s", metadata)
             var = None
             # bmi actions
             if "update" in metadata:
                 dt = float(metadata["update"])
-                logger.info("updating with dt %s", dt)
+                logger.debug("updating with dt %s", dt)
                 model.update(dt)
                 metadata["dt"] = dt
             elif "get_var" in metadata:
                 name = metadata["get_var"]
-                logger.info("sending variable %s", name)
+                logger.debug("sending variable %s", name)
                 # temporary implementation
                 var = model.get_var(name)
                 metadata['name'] = name
@@ -86,13 +86,24 @@ def process_incoming(model, poller, rep, pull, data):
                 # assert socket is req socket
             elif "set_var" in metadata:
                 name = metadata["set_var"]
-                logger.info("setting variable %s", name)
-                arr = model.set_var(name, A)
-                metadata["name"] = name
+                logger.debug("setting variable %s", name)
+                model.set_var(name, A)
+                metadata["name"] = name  # !?
+            elif "set_var_slice" in metadata:
+                name = metadata["set_var_slice"]
+                logger.debug("setting variable %s", name)
+                start = metadata["start"]
+                count = metadata["count"]
+                model.set_var_slice(name, start, count, A)
+                metadata["name"] = name  # !?
             elif "get_current_time" in metadata:
                 metadata["get_current_time"]
                 t = model.get_current_time()
                 metadata['get_current_time'] = t
+            elif "get_time_step" in metadata:
+                metadata["get_time_step"]
+                dt = model.get_time_step()
+                metadata['get_time_step'] = dt
             elif "get_end_time" in metadata:
                 metadata["get_end_time"]
                 t = model.get_end_time()
@@ -175,6 +186,9 @@ def main():
         model.state = "play"
         if arguments["--pause"]:
             model.state = "pause"
+            logger.info("model initialized and started in pause mode, wating for requests ...")
+        else:
+            logger.info("model started and initialized, running ...")
 
         # Start a reply process in the background, with variables available
         # after initialization, sent all at once as py_obj
@@ -196,7 +210,7 @@ def main():
             else:
                 # otherwise process messages once and continue
                 process_incoming(model, poller, rep, pull, data)
-            logger.info("i %s", i)
+            logger.debug("i %s", i)
 
             # paused ...
             model.update()
@@ -210,7 +224,7 @@ def main():
                 value = model.get_var(key)
                 metadata = {'name': key, 'iteration': i}
                 # 4ms for 1M doubles
-                logger.info("sending {}".format(metadata))
+                logger.debug("sending {}".format(metadata))
                 send_array(pub, value, metadata=metadata)
 
 if __name__ == '__main__':
