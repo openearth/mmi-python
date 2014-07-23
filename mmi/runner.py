@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 Usage:
-  mmi-runner <engine> <configfile> [-o <outputvar>...] [-g <globalvar>...] [--interval <interval>] [--disable-logger] [--pause] [--mpi]
+  mmi-runner <engine> <configfile> [-o <outputvar>...] [-g <globalvar>...] [--interval <interval>] [--disable-logger] [--pause] [--mpi <method>] [--track <server>]
   mmi-runner -h | --help
 
 Positional arguments:
@@ -15,7 +15,8 @@ Optional arguments:
   -g <globalvar>           global variables, will be send if requested
   --disable-logger         do not inject logger into the BMI library
   --pause                  start in paused mode, send update messages to progress
-  --mpi                    add rank number to port
+  --mpi <method>           communicate with mpi nodes using one of the methods: root (communicate with rank 0), all (one socket per rank)
+  --track <server>         register model at model tracking server [default: mmi.openearth.nl]
 
 """
 
@@ -39,22 +40,34 @@ from mmi import send_array, recv_array
 logging.basicConfig()
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 ioloop.install()
 
 
 # see or an in memory numpy message:
 # http://zeromq.github.io/pyzmq/serialization.html
+def register(server, metadata):
+    """register model at tracking server"""
+    logger.info("register at server %s with %s", server, metadata)
+    # connect to server
+    # send_array(socket, A=None, metadata=metadata)
 
 
-def process_incoming(model, poller, rep, pull, data):
+def process_incoming(model, sockets, data):
     """
     process incoming messages
 
     data is a dict with several arrays
     """
     # Check for new messages
+    if not sockets:
+        return
+    # unpack sockets
+    poller = sockets['poller']
+    rep = sockets['rep']
+    pull = sockets['pull']
+
     items = poller.poll(10)
     for sock, n in items:
         for i in range(n):
@@ -144,31 +157,10 @@ def process_incoming(model, poller, rep, pull, data):
                 # reply
                 send_array(rep, var, metadata=metadata)
 
-def main():
-    arguments = docopt.docopt(__doc__)
-    paused = arguments['--pause']
-    logger.info(arguments)
-    # make a socket that replies to message with the grid
-
-    ports = {
-        "REQ": 5600,
-        "PULL": 5700,
-        "PUB": 5800
-    }
-
-    if arguments['--mpi']:
-        import mpi4py.MPI
-        comm = mpi4py.MPI.COMM_WORLD
-        rank = comm.Get_rank()
-
-        for port in ports:
-            ports[port] += rank
-
-    logger.info("Using ports %s", ports)
-    # You probably want to read:
-    # http://zguide.zeromq.org/page:all
-
+def create_sockets(ports):
     context = zmq.Context()
+    poller = zmq.Poller()
+
     # Socket to handle init data
     rep = context.socket(zmq.REP)
     rep.bind(
@@ -184,22 +176,71 @@ def main():
         "tcp://*:{port}".format(port=ports["PUB"])
     )
 
-    poller = zmq.Poller()
     poller.register(rep, zmq.POLLIN)
     poller.register(pull, zmq.POLLIN)
+    sockets = dict(
+        poller=poller,
+        rep=rep,
+        pull=pull,
+        pub=pub
+    )
+    return sockets
 
-    bmi.wrapper.logger.setLevel(logging.WARN)
+def main():
+    arguments = docopt.docopt(__doc__)
+    paused = arguments['--pause']
+    logger.info(arguments)
+    # make a socket that replies to message with the grid
 
+    ports = {
+        "REQ": 5600,
+        "PULL": 5700,
+        "PUB": 5800
+    }
+
+    # if we are running mpi we want to know the rank
+    if arguments['--mpi']:
+        import mpi4py.MPI
+        comm = mpi4py.MPI.COMM_WORLD
+        rank = comm.Get_rank()
+    else:
+        # or we assume it's 0
+        rank = 0
+
+    # if we want to communicate with separate domains
+    # we have to setup a socket for each of them
+    if arguments['--mpi'] == 'all':
+        # use a socket for each rank rank
+        for port in ports:
+            ports[port] += rank
+
+    # now we can create the zmq sockets and poller
+    sockets = {}
+    if rank == 0 or arguments['--mpi'] == 'all':
+        # Create sockets
+        sockets = create_sockets(ports)
+
+    # not so verbose
+    # bmi.wrapper.logger.setLevel(logging.WARN)
+
+    wrapper = bmi.wrapper.BMIWrapper(engine=arguments['<engine>'],
+                                     configfile=arguments['<configfile>'])
     # for replying to grid requests
-    with bmi.wrapper.BMIWrapper(engine=arguments['<engine>'],
-                                configfile=arguments['<configfile>']) as model:
-        model.initialize()
+    with wrapper as model:
         model.state = "play"
         if arguments["--pause"]:
             model.state = "pause"
             logger.info("model initialized and started in pause mode, wating for requests ...")
         else:
             logger.info("model started and initialized, running ...")
+
+        if arguments["--track"]:
+            server = arguments["--track"]
+            metadata = {
+                "engine": arguments['<engine>'],
+                "configfile": arguments['<configfile>']
+            }
+            register(server, metadata)
 
         # Start a reply process in the background, with variables available
         # after initialization, sent all at once as py_obj
@@ -208,7 +249,7 @@ def main():
             for var
             in arguments['-g']
         }
-        process_incoming(model, poller, rep, pull, data)
+        process_incoming(model, sockets, data)
 
         # Keep on counting indefinitely
         counter = itertools.count()
@@ -217,17 +258,16 @@ def main():
 
             while model.state == "pause":
                 # keep waiting for messages when paused
-                process_incoming(model, poller, rep, pull, data)
+                process_incoming(model, sockets, data)
             else:
                 # otherwise process messages once and continue
-                process_incoming(model, poller, rep, pull, data)
+                process_incoming(model, sockets, data)
             logger.debug("i %s", i)
 
             # paused ...
-            model.update()
+            model.update(-1)
 
             # check counter
-
             if arguments.get('--interval') and (i % arguments['--interval']):
                 continue
 
@@ -236,7 +276,8 @@ def main():
                 metadata = {'name': key, 'iteration': i}
                 # 4ms for 1M doubles
                 logger.debug("sending {}".format(metadata))
-                send_array(pub, value, metadata=metadata)
+                if 'pub' in sockets:
+                    send_array(sockets['pub'], value, metadata=metadata)
 
 if __name__ == '__main__':
 

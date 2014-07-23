@@ -29,11 +29,28 @@ class WebSocket(tornado.websocket.WebSocketHandler):
                                             **kwargs)
         self.metadata = None
 
-    def initialize(self, zmqstream, database):
-        self.zmqstream = zmqstream
+    def initialize(self, database):
         self.database = database
     def open(self, key):
         logger.debug("websocket opened for key %s", key)
+        self.key = key
+        # openeing corresponding socket of model
+
+        # open push socket to forward incoming zmq messages
+        socket = ctx.socket(zmq.PUSH)
+        socket.connect(self.database[key]['pull'])
+        self.pushstream = ZMQStream(socket)
+
+        socket = ctx.socket(zmq.SUB)
+        socket.connect(self.database[key]['pub'])
+        self.substream = ZMQStream(socket)
+
+        def send(messages):
+            """forward messages to this websocket"""
+            for message in messages:
+                self.write_message(message)
+        self.substream.on_recv(send)
+
     def on_message(self, message):
         # unicode, metadata message
         logger.debug("got message %s", message)
@@ -46,11 +63,11 @@ class WebSocket(tornado.websocket.WebSocketHandler):
             dtype = self.metadata['dtype']
             shape = self.metadata['shape']
             # use the zmqstream as a socket (send, send_json)
-            socket = self.zmqstream
+            socket = self.pushstream
             # unpack array
             A = np.fromstring(message, dtype=dtype)
             A = A.reshape(shape)
-            # pass it along to the socket
+            # pass it along to the socket (push)
             send_array(socket, A, self.metadata)
             self.metadata = None
     def on_close(self):
@@ -68,18 +85,22 @@ class ModelHandler(tornado.web.RequestHandler):
     def post(self, key):
         # TODO: show a list of running models
         self.database[key] = json.loads(self.request.body)
+    def put(self, key):
+        # TODO: show a list of running models
+        self.database[key] = json.loads(self.request.body)
 
 def main():
     ctx = zmq.Context()
-    socket = ctx.socket(zmq.PUB)
-    socket.bind("tcp://*:5600")
+    # register socket
+    socket = ctx.socket(zmq.PULL)
+    socket.bind("tcp://*:6000")
     zmqstream = ZMQStream(socket)
     database = {}
     application = tornado.web.Application([
         (r"/", MainHandler, {"database": database}),
         # todo use an id scheme to attach to multiple models
         (r"/models/(.*)", ModelHandler, {"database": database}),
-        (r"/mmi/(.*)", WebSocket, {"zmqstream": zmqstream, "database": database}),
+        (r"/mmi/(.*)", WebSocket, {"database": database}),
     ])
     application.listen(8888)
     tornado.ioloop.IOLoop.instance().start()
