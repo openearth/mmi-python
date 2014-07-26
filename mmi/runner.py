@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 Usage:
-  mmi-runner <engine> <configfile> [-o <outputvar>...] [-g <globalvar>...] [--interval <interval>] [--disable-logger] [--pause] [--mpi <method>] [--track <server>]
+  mmi-runner <engine> <configfile> [-o <outputvar>...] [-g <globalvar>...] [--interval <interval>] [--disable-logger] [--pause] [--mpi <method>] [--track <server>] [--port <port>]
   mmi-runner -h | --help
 
 Positional arguments:
@@ -16,7 +16,8 @@ Optional arguments:
   --disable-logger         do not inject logger into the BMI library
   --pause                  start in paused mode, send update messages to progress
   --mpi <method>           communicate with mpi nodes using one of the methods: root (communicate with rank 0), all (one socket per rank)
-  --track <server>         register model at model tracking server [default: mmi.openearth.nl]
+  --port <port>            port for req/rep, push/pull = port+100, pub/sub = port +200 [default: 5600]
+
 
 """
 
@@ -192,10 +193,11 @@ def main():
     logger.info(arguments)
     # make a socket that replies to message with the grid
 
+    port = int(arguments['--port'])
     ports = {
-        "REQ": 5600,
-        "PULL": 5700,
-        "PUB": 5800
+        "REQ": port,
+        "PULL": port+100,
+        "PUB": port+200
     }
 
     # if we are running mpi we want to know the rank
