@@ -16,24 +16,27 @@ Optional arguments:
   --disable-logger         do not inject logger into the BMI library
   --pause                  start in paused mode, send update messages to progress
   --mpi <method>           communicate with mpi nodes using one of the methods: root (communicate with rank 0), all (one socket per rank)
-  --port <port>            port for req/rep, push/pull = port+100, pub/sub = port +200 [default: 5600]
-
+  --port <port>            base port, port is computed as req/rep = port + rank*3 + 0, push/pull = port + rank*3 + 1, pub/sub = port + rank*3 + 2 [default: 5600]
+  --track <tracker>        server to subscribe to for tracking
 
 """
 
 import logging
-
+import json
+import urlparse
 import datetime
 import logging
 import itertools
 import argparse
+import atexit
 
 import docopt
-
+import requests
 import zmq
 import zmq.eventloop.zmqstream
 from zmq.eventloop import ioloop
 import numpy as np
+
 
 import bmi.wrapper
 from mmi import send_array, recv_array
@@ -52,8 +55,16 @@ def register(server, metadata):
     """register model at tracking server"""
     logger.info("register at server %s with %s", server, metadata)
     # connect to server
-    # send_array(socket, A=None, metadata=metadata)
+    result = requests.post(urlparse.urljoin(server, 'models'), data=json.dumps(metadata))
+    logger.info("got back %s", result.json())
+    metadata["tracker"] = result.json()
 
+def unregister(server, metadata):
+    """unregister model at tracking server"""
+    uuid = metadata["tracker"]["uuid"]
+    # connect to server
+    result = requests.delete(urlparse.urljoin(server, 'models' + "/" + uuid))
+    logger.info("unregistered at server %s with %s: %s", server, uuid, result)
 
 def process_incoming(model, sockets, data):
     """
@@ -193,28 +204,32 @@ def main():
     logger.info(arguments)
     # make a socket that replies to message with the grid
 
-    port = int(arguments['--port'])
-    ports = {
-        "REQ": port,
-        "PULL": port+100,
-        "PUB": port+200
-    }
 
     # if we are running mpi we want to know the rank
     if arguments['--mpi']:
         import mpi4py.MPI
         comm = mpi4py.MPI.COMM_WORLD
         rank = comm.Get_rank()
+        size = comm.Get_size()
     else:
         # or we assume it's 0
         rank = 0
+        size = 1
+
+    port = int(arguments['--port'])
+    ports = {
+        "REQ": port + 0,
+        "PULL": port + 1,
+        "PUB": port + 2
+    }
+
 
     # if we want to communicate with separate domains
     # we have to setup a socket for each of them
     if arguments['--mpi'] == 'all':
         # use a socket for each rank rank
         for port in ports:
-            ports[port] += rank
+            ports[port] += (rank * 3)
 
     # now we can create the zmq sockets and poller
     sockets = {}
@@ -240,10 +255,15 @@ def main():
             server = arguments["--track"]
             metadata = {
                 "engine": arguments['<engine>'],
-                "configfile": arguments['<configfile>']
+                "configfile": arguments['<configfile>'],
+                "ports": ports,
+                "rank": rank,
+                "size": size
             }
             register(server, metadata)
 
+        if arguments["--track"]:
+            atexit.register(unregister, server, metadata)
         # Start a reply process in the background, with variables available
         # after initialization, sent all at once as py_obj
         data = {

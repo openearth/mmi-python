@@ -1,3 +1,4 @@
+import uuid
 import json
 import itertools
 from threading import Thread
@@ -82,13 +83,24 @@ class MainHandler(tornado.web.RequestHandler):
 class ModelHandler(tornado.web.RequestHandler):
     def initialize(self, database):
         self.database = database
-    def post(self, key):
+    def get(self, key=None):
+        """Register a new model (models)"""
+        if key is not None:
+            result = json.dumps(self.database[key])
+        else:
+            result = json.dumps(self.database)
+        self.write(result)
+    def post(self):
+        """Register a new model (models)"""
+        key = uuid.uuid4().hex
+        self.database[key] = json.loads(self.request.body)
+        result = json.dumps({"uuid": key})
+        self.write(result)
+    def put(self, key, *args, **kwargs):
         # TODO: show a list of running models
         self.database[key] = json.loads(self.request.body)
-    def put(self, key):
-        # TODO: show a list of running models
-        self.database[key] = json.loads(self.request.body)
-
+    def delete(self, key, *args, **kwargs):
+        del self.database[key]
 def main():
     ctx = zmq.Context()
     # register socket
@@ -99,7 +111,8 @@ def main():
     application = tornado.web.Application([
         (r"/", MainHandler, {"database": database}),
         # todo use an id scheme to attach to multiple models
-        (r"/models/(.*)", ModelHandler, {"database": database}),
+        (r"/models", ModelHandler, {"database": database}),
+        (r"/models/(.*)?", ModelHandler, {"database": database}),
         (r"/mmi/(.*)", WebSocket, {"database": database}),
     ])
     application.listen(8888)
