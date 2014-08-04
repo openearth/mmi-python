@@ -20,7 +20,7 @@ Optional arguments:
   --track <tracker>        server to subscribe to for tracking
 
 """
-
+import os
 import logging
 import json
 import urlparse
@@ -79,7 +79,7 @@ def process_incoming(model, sockets, data):
     poller = sockets['poller']
     rep = sockets['rep']
     pull = sockets['pull']
-
+    pub = sockets['pub']
     items = poller.poll(10)
     for sock, n in items:
         for i in range(n):
@@ -99,6 +99,7 @@ def process_incoming(model, sockets, data):
                 var = model.get_var(name)
                 metadata['name'] = name
                 # assert socket is req socket
+
             elif "get_var_count" in metadata:
                 # temporary implementation
                 n = model.get_var_count()
@@ -168,6 +169,12 @@ def process_incoming(model, sockets, data):
             if sock.socket_type == zmq.REP:
                 # reply
                 send_array(rep, var, metadata=metadata)
+            # any getter requested through the pull socket?
+            elif any(x.startswith("get_") for x in metadata) and sock.socket_type == zmq.PULL:
+                # return through the pub socket
+                send_array(pub, var, metadata=metadata)
+
+
 
 def create_sockets(ports):
     context = zmq.Context()
@@ -179,8 +186,8 @@ def create_sockets(ports):
         "tcp://*:{port}".format(port=ports["REQ"])
     )
     pull = context.socket(zmq.PULL)
-    pull.connect(
-        "tcp://localhost:{port}".format(port=ports["PULL"])
+    pull.bind(
+        "tcp://*:{port}".format(port=ports["PULL"])
     )
     # for sending model messages
     pub = context.socket(zmq.PUB)
@@ -253,6 +260,7 @@ def main():
 
         if arguments["--track"]:
             server = arguments["--track"]
+
             metadata = {
                 "engine": arguments['<engine>'],
                 "configfile": arguments['<configfile>'],
@@ -260,6 +268,13 @@ def main():
                 "rank": rank,
                 "size": size
             }
+            metadata_filename = os.path.join(
+                os.path.dirname(arguments['<configfile>']),
+                "metadata.json"
+            )
+            if os.path.isfile(metadata_filename):
+                metadata.update(json.load(open(metadata_filename)))
+
             register(server, metadata)
 
         if arguments["--track"]:

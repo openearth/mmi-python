@@ -49,6 +49,13 @@ def main():
         # wait for reply
         arr, metadata = recv_array(req)
         logger.info("metadata: %s\n array: %s", metadata, arr)
+    elif arguments['--request'] == 'PUSH':
+        req = context.socket(zmq.PUSH)
+        req.connect(url)
+        value = None
+        send_array(req, value, metadata=metadata)
+        logger.info("metadata: %s", metadata)
+
 
 
 
