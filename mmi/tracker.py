@@ -131,9 +131,6 @@ class ModelHandler(tornado.web.RequestHandler):
 def main():
     ctx = zmq.Context()
     # register socket
-    socket = ctx.socket(zmq.PULL)
-    socket.bind("tcp://*:6000")
-    zmqstream = ZMQStream(socket)
     database = {}
     application = tornado.web.Application([
         (r"/", MainHandler, {"database": database}),

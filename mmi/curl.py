@@ -8,9 +8,9 @@ Positional arguments:
   url  connection string used for sending/receiving messages
 
 Optional arguments:
-  -h, --help      show this help message and exit
-  --metadata=<json>  send a message with metadata [default: {}]
-  --request=<command>   use the following method of connection (REQ|SUB|PUSH) [default: SUB]
+  -h, --help               show this help message and exit
+  -d --metadata=<json>     send a message with metadata [default: {}]
+  -X --request=<command>   use the following method of connection (REQ|SUB|PUSH) [default: SUB]
 
 """
 import logging

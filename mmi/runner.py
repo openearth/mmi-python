@@ -16,7 +16,7 @@ Optional arguments:
   --disable-logger         do not inject logger into the BMI library
   --pause                  start in paused mode, send update messages to progress
   --mpi <method>           communicate with mpi nodes using one of the methods: root (communicate with rank 0), all (one socket per rank)
-  --port <port>            base port, port is computed as req/rep = port + rank*3 + 0, push/pull = port + rank*3 + 1, pub/sub = port + rank*3 + 2 [default: 5600]
+  --port <port>            "random" or integer base port, port is computed as req/rep = port + rank*3 + 0, push/pull = port + rank*3 + 1, pub/sub = port + rank*3 + 2 [default: random]
   --track <tracker>        server to subscribe to for tracking
 
 """
@@ -29,6 +29,7 @@ import logging
 import itertools
 import argparse
 import atexit
+import platform
 
 import docopt
 import requests
@@ -182,18 +183,35 @@ def create_sockets(ports):
 
     # Socket to handle init data
     rep = context.socket(zmq.REP)
-    rep.bind(
-        "tcp://*:{port}".format(port=ports["REQ"])
-    )
+    if "REQ" in ports:
+        rep.bind(
+            "tcp://*:{port}".format(port=ports["REQ"])
+        )
+    else:
+        ports["REQ"] = rep.bind_to_random_port(
+            "tcp://*"
+        )
+
     pull = context.socket(zmq.PULL)
-    pull.bind(
-        "tcp://*:{port}".format(port=ports["PULL"])
-    )
+    if "PULL" in ports:
+        pull.bind(
+            "tcp://*:{port}".format(port=ports["PULL"])
+        )
+    else:
+        ports["PULL"] = pull.bind_to_random_port(
+            "tcp://*"
+        )
+
     # for sending model messages
     pub = context.socket(zmq.PUB)
-    pub.bind(
-        "tcp://*:{port}".format(port=ports["PUB"])
-    )
+    if "PUB" in ports:
+        pub.bind(
+            "tcp://*:{port}".format(port=ports["PUB"])
+        )
+    else:
+        ports["PUB"] = pub.bind_to_random_port(
+            "tcp://*"
+        )
 
     poller.register(rep, zmq.POLLIN)
     poller.register(pull, zmq.POLLIN)
@@ -223,12 +241,16 @@ def main():
         rank = 0
         size = 1
 
-    port = int(arguments['--port'])
-    ports = {
-        "REQ": port + 0,
-        "PULL": port + 1,
-        "PUB": port + 2
-    }
+    if arguments["--port"] == "random":
+        # ports will be filled in
+        ports = {}
+    else:
+        port = int(arguments['--port'])
+        ports = {
+            "REQ": port + 0,
+            "PULL": port + 1,
+            "PUB": port + 2
+        }
 
 
     # if we want to communicate with separate domains
@@ -261,13 +283,20 @@ def main():
         if arguments["--track"]:
             server = arguments["--track"]
 
-            metadata = {
+            metadata = {}
+            # update connection information from external service
+            # You might want to disable this if you have some sort of sense of privacy
+            metadata["ifconfig"] = requests.get("http://ipinfo.io/json").json()
+            # node
+            metadata["node"] = platform.node()
+            metadata.update({
                 "engine": arguments['<engine>'],
                 "configfile": arguments['<configfile>'],
                 "ports": ports,
                 "rank": rank,
                 "size": size
-            }
+            })
+
             metadata_filename = os.path.join(
                 os.path.dirname(arguments['<configfile>']),
                 "metadata.json"
