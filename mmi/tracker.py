@@ -1,6 +1,7 @@
 import uuid
 import json
 import itertools
+import subprocess
 from threading import Thread
 import logging
 
@@ -128,19 +129,37 @@ class ModelHandler(tornado.web.RequestHandler):
         del self.database[key]
 
 
+class RunHandler(tornado.web.RequestHandler):
+    def initialize(self, schemas, runs):
+        self.schemas = schemas
+        self.runs = runs
+    def get(self, key):
+        """Start a new model (models)"""
+        self.set_header("Access-Control-Allow-Origin", "*")
+        model = self.database[key]
+        process = subprocess.Popen(["mmi-runner", model["engine"], model["config"],  "--track=http://localhost:8888", "--pause"])
+        result = json.dumps({"uuid": process.pid})
+        self.write(result)
+
+
 def main():
     ctx = zmq.Context()
     # register socket
     socket = ctx.socket(zmq.PULL)
     socket.bind("tcp://*:6000")
     zmqstream = ZMQStream(socket)
+    runs = {}
+    schemas = {}
     database = {}
     application = tornado.web.Application([
         (r"/", MainHandler, {"database": database}),
         # todo use an id scheme to attach to multiple models
-        (r"/models", ModelHandler, {"database": database}),
-        (r"/models/(.*)?", ModelHandler, {"database": database}),
-        (r"/mmi/(.*)", WebSocket, {"database": database, "ctx": ctx}),
+        (r"/schemas", ModelHandler, {"database": schemas}),
+        (r"/schemas/(.*)?", ModelHandler, {"database": schemas}),
+        (r"/start/(.*)?", RunHandler, {"schemas": schemas, "runs": runs}),
+        (r"/runs", ModelHandler, {"database": runs}),
+        (r"/runs/(.*)?", ModelHandler, {"database": runs}),
+        (r"/mmi/(.*)", WebSocket, {"database": runs, "ctx": ctx}),
     ])
     application.listen(8888)
     tornado.ioloop.IOLoop.instance().start()

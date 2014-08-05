@@ -55,7 +55,7 @@ def register(server, metadata):
     """register model at tracking server"""
     logger.info("register at server %s with %s", server, metadata)
     # connect to server
-    result = requests.post(urlparse.urljoin(server, 'models'), data=json.dumps(metadata))
+    result = requests.post(urlparse.urljoin(server, 'runs'), data=json.dumps(metadata))
     logger.info("got back %s", result.json())
     metadata["tracker"] = result.json()
 
@@ -63,7 +63,7 @@ def unregister(server, metadata):
     """unregister model at tracking server"""
     uuid = metadata["tracker"]["uuid"]
     # connect to server
-    result = requests.delete(urlparse.urljoin(server, 'models' + "/" + uuid))
+    result = requests.delete(urlparse.urljoin(server, 'runs' + "/" + uuid))
     logger.info("unregistered at server %s with %s: %s", server, uuid, result)
 
 def process_incoming(model, sockets, data):
