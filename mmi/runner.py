@@ -95,9 +95,12 @@ def process_incoming(model, sockets, data):
                 metadata["dt"] = dt
             elif "get_var" in metadata:
                 name = metadata["get_var"]
-                logger.debug("sending variable %s", name)
                 # temporary implementation
-                var = model.get_var(name)
+                if metadata.get("copy", False):
+                    var = model.get_var(name).copy()
+                else:
+                    var = model.get_var(name)
+                logger.debug("sending variable %s with shape %s", name, var.shape)
                 metadata['name'] = name
                 # assert socket is req socket
 
@@ -286,7 +289,10 @@ def main():
             metadata = {}
             # update connection information from external service
             # You might want to disable this if you have some sort of sense of privacy
-            metadata["ifconfig"] = requests.get("http://ipinfo.io/json").json()
+            try:
+                metadata["ifconfig"] = requests.get("http://ipinfo.io/json").json()
+            except requests.exceptions.ConnectionError:
+                pass
             # node
             metadata["node"] = platform.node()
             metadata.update({
