@@ -133,7 +133,8 @@ class WebSocket(tornado.websocket.WebSocketHandler):
                 self.metadata = metadata
         else:
             # assume we already have metadata
-            assert self.metadata, "got message without preceding metadata"
+            if not self.metadata:
+                logger.warn("got message without preceding metadata")
             dtype = self.metadata['dtype']
             shape = self.metadata['shape']
             # unpack array

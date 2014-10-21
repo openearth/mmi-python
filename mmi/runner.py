@@ -23,6 +23,7 @@ Optional arguments:
 import os
 import logging
 import json
+import simplejson
 import urlparse
 import datetime
 import logging
@@ -291,8 +292,14 @@ def main():
             # You might want to disable this if you have some sort of sense of privacy
             try:
                 metadata["ifconfig"] = requests.get("http://ipinfo.io/json").json()
-            except requests.exceptions.ConnectionError:
+            except:
                 pass
+            # except requests.exceptions.ConnectionError:
+            #     logger.exception("Could not read ip info from ipinfo.io")
+            #     pass
+            # except simplejson.scanner.JSONDecodeError:
+            #     logger.exception("Could not parse ip info from ipinfo.io")
+            #     pass
             # node
             metadata["node"] = platform.node()
             metadata.update({
@@ -340,7 +347,7 @@ def main():
             model.update(-1)
 
             # check counter
-            if arguments.get('--interval') and (i % arguments['--interval']):
+            if arguments.get('--interval') and (i % int(arguments['--interval'])):
                 continue
 
             for key in arguments['-o']:
