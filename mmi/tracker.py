@@ -113,7 +113,7 @@ class WebSocket(tornado.websocket.WebSocketHandler):
 
     def on_message(self, message):
         # unicode, metadata message
-        logger.debug("got message %s", message)
+        logger.debug("got message %20s, text: %s", message, isinstance(message, six.text_type))
 
         # Let's try and forward it.
         # use the zmqstream as a socket (send, send_json)
@@ -145,7 +145,9 @@ class WebSocket(tornado.websocket.WebSocketHandler):
             self.metadata = None
     def on_close(self):
         logger.debug("websocket closed")
-
+    def check_origin(self, origin):
+        """connect from everywhere"""
+        return True
 class MainHandler(tornado.web.RequestHandler):
     def initialize(self, database):
         self.database = database
