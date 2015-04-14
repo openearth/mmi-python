@@ -106,6 +106,24 @@ def process_incoming(model, sockets, data):
                 n = model.get_var_count()
                 metadata['get_var_count'] = n
                 # assert socket is req socket
+            elif "get_var_rank" in metadata:
+                # temporary implementation
+                var_name = metadata['get_var_rank']
+                n = model.get_var_rank(var_name)
+                metadata['get_var_rank'] = n
+                # assert socket is req socket
+            elif "get_var_shape" in metadata:
+                # temporary implementation
+                var_name = metadata['get_var_shape']
+                n = model.get_var_shape(var_name)
+                metadata['get_var_shape'] = tuple([int(item) for item in n])
+                # assert socket is req socket
+            elif "get_var_type" in metadata:
+                # temporary implementation
+                var_name = metadata['get_var_type']
+                n = model.get_var_type(var_name)
+                metadata['get_var_type'] = n
+                # assert socket is req socket
             elif "get_var_name" in metadata:
                 i = int(metadata["get_var_name"])
                 name = model.get_var_name(i)
@@ -167,7 +185,7 @@ def process_incoming(model, sockets, data):
                 # elif action['operator'] == 'add':
                 #     arr[S] += data
             else:
-                logger.warn("got message from unknown socket {}".format(sock))
+                logger.warn("got unknown message {} from socket {}".format(str(metadata), sock))
             if sock.socket_type == zmq.REP:
                 # reply
                 send_array(rep, var, metadata=metadata)
