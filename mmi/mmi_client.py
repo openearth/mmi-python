@@ -60,7 +60,10 @@ class MMIClient(object):
     def update(self, dt=-1):
         """
         """
-        pass
+        metadata = {'update': dt}
+        send_array(self.sockets['REQ'], None, metadata=metadata)
+        arr, result_meta = recv_array(self.sockets['REQ'])
+        return result_meta['dt']
 
     def get_var_count(self):
         """
@@ -71,13 +74,10 @@ class MMIClient(object):
         pass
 
     def get_var_type(self, name):
-        # TODO
-        logger.debug('get_var_type')
         metadata = {'get_var_type': name}
         send_array(self.sockets['REQ'], None, metadata=metadata)
         arr, result_meta = recv_array(self.sockets['REQ'])
         return result_meta['get_var_type']
-        pass
 
     def inq_compound(self, name):
         pass
@@ -89,15 +89,12 @@ class MMIClient(object):
         pass
 
     def get_var_rank(self, name):
-        # TODO
-        logger.debug('get_var_rank')
         metadata = {'get_var_rank': name}
         send_array(self.sockets['REQ'], None, metadata=metadata)
         arr, result_meta = recv_array(self.sockets['REQ'])
         return int(result_meta['get_var_rank'])
 
     def get_var_shape(self, name):
-        # TODO
         logger.debug('get_var_shape')
         metadata = {'get_var_shape': name}
         send_array(self.sockets['REQ'], None, metadata=metadata)
@@ -117,8 +114,6 @@ class MMIClient(object):
         pass
 
     def get_var(self, name):
-        # TODO
-        logger.debug('get_var')
         metadata = {'get_var': name}
         send_array(self.sockets['REQ'], None, metadata=metadata)
         arr, result_meta = recv_array(self.sockets['REQ'])
