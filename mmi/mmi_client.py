@@ -102,13 +102,22 @@ class MMIClient(object):
         return tuple(result_meta['get_var_shape'])
 
     def get_start_time(self):
-        pass
+        metadata = {'get_start_time': None}
+        send_array(self.sockets['REQ'], None, metadata=metadata)
+        arr, result_meta = recv_array(self.sockets['REQ'])
+        return float(result_meta['get_start_time'])
 
     def get_end_time(self):
-        pass
+        metadata = {'get_end_time': None}
+        send_array(self.sockets['REQ'], None, metadata=metadata)
+        arr, result_meta = recv_array(self.sockets['REQ'])
+        return float(result_meta['get_end_time'])
 
     def get_current_time(self):
-        pass
+        metadata = {'get_current_time': None}
+        send_array(self.sockets['REQ'], None, metadata=metadata)
+        arr, result_meta = recv_array(self.sockets['REQ'])
+        return float(result_meta['get_current_time'])
 
     def get_time_step(self):
         pass
