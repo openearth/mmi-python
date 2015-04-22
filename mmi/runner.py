@@ -203,7 +203,7 @@ def create_sockets(ports):
     rep = context.socket(zmq.REP)
     # this was inconsequent: here REQ is for the client, we reply with REP.
     # PULL and PUB is seen from here, not from the client.
-    # Is now renamed to PUSH and SUB
+    # Is now renamed to PUSH and SUB: everything is seen from outside.
     if "REQ" in ports:
         rep.bind(
             "tcp://*:{port}".format(port=ports["REQ"])
