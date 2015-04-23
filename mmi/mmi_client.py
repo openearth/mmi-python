@@ -2,11 +2,12 @@ import zmq
 import logging
 
 from mmi import send_array, recv_array
+from bmi.api import IBmi
 
 logger = logging.getLogger(__name__)
 
 
-class MMIClient(object):
+class MMIClient(IBmi):
     def __init__(self, uuid, mmi_metadata):
         """
         The 'database' has mmi module metadata.
