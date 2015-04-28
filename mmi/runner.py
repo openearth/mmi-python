@@ -23,12 +23,8 @@ Optional arguments:
 import os
 import logging
 import json
-import simplejson
 import urlparse
-import datetime
-import logging
 import itertools
-import argparse
 import atexit
 import platform
 
@@ -37,13 +33,11 @@ import requests
 import zmq
 import zmq.eventloop.zmqstream
 from zmq.eventloop import ioloop
-import numpy as np
 
 
 import bmi.wrapper
 from mmi import send_array, recv_array
 
-logging.basicConfig()
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -55,18 +49,20 @@ ioloop.install()
 # http://zeromq.github.io/pyzmq/serialization.html
 def register(server, metadata):
     """register model at tracking server"""
-    logger.info("register at server %s with %s", server, metadata)
+    logger.debug("register at server %s with %s", server, metadata)
     # connect to server
     result = requests.post(urlparse.urljoin(server, 'models'), data=json.dumps(metadata))
-    logger.info("got back %s", result.json())
+    logger.debug("got back %s", result.json())
     metadata["tracker"] = result.json()
+
 
 def unregister(server, metadata):
     """unregister model at tracking server"""
     uuid = metadata["tracker"]["uuid"]
     # connect to server
     result = requests.delete(urlparse.urljoin(server, 'models' + "/" + uuid))
-    logger.info("unregistered at server %s with %s: %s", server, uuid, result)
+    logger.debug("unregistered at server %s with %s: %s", server, uuid, result)
+
 
 def process_incoming(model, sockets, data):
     """
@@ -80,7 +76,7 @@ def process_incoming(model, sockets, data):
     # unpack sockets
     poller = sockets['poller']
     rep = sockets['rep']
-    pull = sockets['pull']
+    # pull = sockets['pull']
     pub = sockets['pub']
     items = poller.poll(10)
     for sock, n in items:
@@ -109,6 +105,24 @@ def process_incoming(model, sockets, data):
                 # temporary implementation
                 n = model.get_var_count()
                 metadata['get_var_count'] = n
+                # assert socket is req socket
+            elif "get_var_rank" in metadata:
+                # temporary implementation
+                var_name = metadata['get_var_rank']
+                n = model.get_var_rank(var_name)
+                metadata['get_var_rank'] = n
+                # assert socket is req socket
+            elif "get_var_shape" in metadata:
+                # temporary implementation
+                var_name = metadata['get_var_shape']
+                n = model.get_var_shape(var_name)
+                metadata['get_var_shape'] = tuple([int(item) for item in n])
+                # assert socket is req socket
+            elif "get_var_type" in metadata:
+                # temporary implementation
+                var_name = metadata['get_var_type']
+                n = model.get_var_type(var_name)
+                metadata['get_var_type'] = n
                 # assert socket is req socket
             elif "get_var_name" in metadata:
                 i = int(metadata["get_var_name"])
@@ -163,14 +177,15 @@ def process_incoming(model, sockets, data):
                 # TODO: support same operators as MPI_ops here....,
                 # TODO: reduce before apply
                 # TODO: assert pull socket
-                S = tuple(slice(*x) for x in action['slice'])
-                print(repr(arr[S]))
-                if action['operator'] == 'setitem':
-                    arr[S] = data
-                elif action['operator'] == 'add':
-                    arr[S] += data
+                pass
+                # S = tuple(slice(*x) for x in action['slice'])
+                # print(repr(arr[S]))
+                # if action['operator'] == 'setitem':
+                #     arr[S] = data
+                # elif action['operator'] == 'add':
+                #     arr[S] += data
             else:
-                logger.warn("got message from unknown socket {}".format(sock))
+                logger.warn("got unknown message {} from socket {}".format(str(metadata), sock))
             if sock.socket_type == zmq.REP:
                 # reply
                 send_array(rep, var, metadata=metadata)
@@ -180,13 +195,15 @@ def process_incoming(model, sockets, data):
                 send_array(pub, var, metadata=metadata)
 
 
-
 def create_sockets(ports):
     context = zmq.Context()
     poller = zmq.Poller()
 
     # Socket to handle init data
     rep = context.socket(zmq.REP)
+    # this was inconsequent: here REQ is for the client, we reply with REP.
+    # PULL and PUB is seen from here, not from the client.
+    # Is now renamed to PUSH and SUB: everything is seen from outside.
     if "REQ" in ports:
         rep.bind(
             "tcp://*:{port}".format(port=ports["REQ"])
@@ -197,23 +214,23 @@ def create_sockets(ports):
         )
 
     pull = context.socket(zmq.PULL)
-    if "PULL" in ports:
+    if "PUSH" in ports:
         pull.bind(
-            "tcp://*:{port}".format(port=ports["PULL"])
+            "tcp://*:{port}".format(port=ports["PUSH"])
         )
     else:
-        ports["PULL"] = pull.bind_to_random_port(
+        ports["PUSH"] = pull.bind_to_random_port(
             "tcp://*"
         )
 
     # for sending model messages
     pub = context.socket(zmq.PUB)
-    if "PUB" in ports:
+    if "SUB" in ports:
         pub.bind(
-            "tcp://*:{port}".format(port=ports["PUB"])
+            "tcp://*:{port}".format(port=ports["SUB"])
         )
     else:
-        ports["PUB"] = pub.bind_to_random_port(
+        ports["SUB"] = pub.bind_to_random_port(
             "tcp://*"
         )
 
@@ -227,12 +244,13 @@ def create_sockets(ports):
     )
     return sockets
 
-def main():
-    arguments = docopt.docopt(__doc__)
-    paused = arguments['--pause']
-    logger.info(arguments)
-    # make a socket that replies to message with the grid
 
+def runner(
+    arguments, wrapper_class, wrapper_kwargs={}, extra_metadata={}):
+    """
+    MMI Runner
+    """
+    # make a socket that replies to message with the grid
 
     # if we are running mpi we want to know the rank
     if arguments['--mpi']:
@@ -252,10 +270,9 @@ def main():
         port = int(arguments['--port'])
         ports = {
             "REQ": port + 0,
-            "PULL": port + 1,
-            "PUB": port + 2
+            "PUSH": port + 1,
+            "SUB": port + 2
         }
-
 
     # if we want to communicate with separate domains
     # we have to setup a socket for each of them
@@ -269,18 +286,23 @@ def main():
     if rank == 0 or arguments['--mpi'] == 'all':
         # Create sockets
         sockets = create_sockets(ports)
+        logger.debug("ZMQ MMI Ports:")
+        for key, value in ports.items():
+            logger.debug("%s = %d" % (key, value))
 
     # not so verbose
     # bmi.wrapper.logger.setLevel(logging.WARN)
 
-    wrapper = bmi.wrapper.BMIWrapper(engine=arguments['<engine>'],
-                                     configfile=arguments['<configfile>'])
+    wrapper = wrapper_class(
+        engine=arguments['<engine>'],
+        configfile=arguments['<configfile>'],
+        **wrapper_kwargs)
     # for replying to grid requests
     with wrapper as model:
         model.state = "play"
         if arguments["--pause"]:
             model.state = "pause"
-            logger.info("model initialized and started in pause mode, wating for requests ...")
+            logger.info("model initialized and started in pause mode, waiting for requests ...")
         else:
             logger.info("model started and initialized, running ...")
 
@@ -316,6 +338,7 @@ def main():
             )
             if os.path.isfile(metadata_filename):
                 metadata.update(json.load(open(metadata_filename)))
+            metadata.update(extra_metadata)
 
             register(server, metadata)
 
@@ -334,7 +357,6 @@ def main():
         counter = itertools.count()
 
         for i in counter:
-
             while model.state == "pause":
                 # keep waiting for messages when paused
                 process_incoming(model, sockets, data)
@@ -358,7 +380,14 @@ def main():
                 if 'pub' in sockets:
                     send_array(sockets['pub'], value, metadata=metadata)
 
+
+def main():
+    arguments = docopt.docopt(__doc__)
+    runner(arguments, wrapper_class=bmi.wrapper.BMIWrapper)
+
+
 if __name__ == '__main__':
+    logging.basicConfig()
 
+    logger.info("mmi-runner")
     main()
-
