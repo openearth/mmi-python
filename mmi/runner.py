@@ -184,6 +184,11 @@ def process_incoming(model, sockets, data):
                 #     arr[S] = data
                 # elif action['operator'] == 'add':
                 #     arr[S] += data
+            elif "initialize" in metadata:
+                config_file = metadata["initialize"]
+                model.initialize(config_file)
+            elif "finalize" in metadata:
+                model.finalize()
             else:
                 logger.warn("got unknown message {} from socket {}".format(str(metadata), sock))
             if sock.socket_type == zmq.REP:
