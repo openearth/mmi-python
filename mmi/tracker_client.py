@@ -28,3 +28,10 @@ class MMITracker(object):
             if key in v:
                 result[str(v[key])] = k
         return result
+
+    def zmq_address(self, key):
+        """
+        Return a ZeroMQ address to the module with the provided key.
+        """
+        zmq_address = "tcp://" + self.database[key]['node'] + ":" + str(self.database[key]['ports']['REQ'])
+        return zmq_address

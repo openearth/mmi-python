@@ -1,151 +1,217 @@
 import zmq
-import logging
 
 from mmi import send_array, recv_array
 from bmi.api import IBmi
 
-logger = logging.getLogger(__name__)
-
-
 class MMIClient(IBmi):
-    def __init__(self, uuid, mmi_metadata):
+    def __init__(self, zmq_address):
         """
-        The 'database' has mmi module metadata.
-
-        the metadata must contain the key "ports"
-        "ports":  {'PUSH': 58452, 'REQ': 53956, 'SUB': 60285}
+        Constructor
         """
-        logger.debug("Initializing MMI Client [%s]..." % uuid)
-        self.uuid = uuid
-        self.database = mmi_metadata
-        self.ports = mmi_metadata['ports']
 
-        self.sockets = {}
-        self.context = zmq.Context()
+        # Open ZeroMQ socket
+        context = zmq.Context()
 
-        logger.debug("Connecting to push/pull server...")
-        if 'PUSH' in self.ports:
-            logger.debug("MMI PUSH is available")
-            self.sockets['PUSH'] = self.context.socket(zmq.PUSH)
-            # TODO: is this correct?
-            url = 'tcp://%s:%d' % (self.database['node'], self.ports['PUSH'])
-            self.sockets['PUSH'].connect(url)
+        self.socket = context.socket(zmq.REQ)
+        self.socket.connect(zmq_address)
 
-        if 'SUB' in self.ports:
-            logger.debug("MMI SUB is available")
-            self.sockets['SUB'] = self.context.socket(zmq.SUB)
-            url = 'tcp://%s:%d' % (self.database['node'], self.ports['SUB'])
-            self.sockets['SUB'].connect(url)
-
-        if 'REQ' in self.ports:
-            logger.debug("MMI REQ is available")
-            self.sockets['REQ'] = self.context.socket(zmq.REQ)
-            url = 'tcp://%s:%d' % (self.database['node'], self.ports['REQ'])
-            self.sockets['REQ'].connect(url)
-
-    def __getitem__(self, key):
-        """For direct indexing the MMIClient object as a dict"""
-        return self.database[key]
-
-    # from here: BMI commands that gets translated to MMI.
+    # from here: BMI commands that get translated to MMI.
     def initialize(self, configfile=None):
         """
+        Initialize the module
         """
-        pass
+        
+        method = "initialize"
+        
+        A = None
+        metadata = {method : configfile}
+
+        send_array(self.socket, A, metadata)
+        A, metadata = recv_array(self.socket)
 
     def finalize(self):
         """
+        Finalize the module
         """
-        pass
+        
+        method = "finalize"
+        
+        A = None
+        metadata = {method : -1}
 
-    def update(self, dt=-1):
-        """
-        """
-        metadata = {'update': dt}
-        send_array(self.sockets['REQ'], None, metadata=metadata)
-        arr, result_meta = recv_array(self.sockets['REQ'])
-        return result_meta['dt']
+        send_array(self.socket, A, metadata)
+        A, metadata = recv_array(self.socket)
 
     def get_var_count(self):
         """
+        Return number of variables
+        """
+
+        method = "get_var_count"
+        
+        A = None
+        metadata = {method : -1}
+
+        send_array(self.socket, A, metadata)
+        A, metadata = recv_array(self.socket)
+
+        return metadata[method]
+
+    def get_var_name(self, i):
+        """
+        Return variable name
+        """
+
+        method = "get_var_name"
+        
+        A = None
+        metadata = {method : i}
+
+        send_array(self.socket, A, metadata)
+        A, metadata = recv_array(self.socket)
+
+        return metadata[method]
+
+    def get_var_type(self, name):
+        """
+        Return variable name
+        """
+
+        method = "get_var_type"
+        
+        A = None
+        metadata = {method : name}
+
+        send_array(self.socket, A, metadata)
+        A, metadata = recv_array(self.socket)
+
+        return metadata[method]
+
+    def get_var_rank(self, name):
+        """
+        Return variable rank
+        """
+
+        method = "get_var_rank"
+        
+        A = None
+        metadata = {method : name}
+
+        send_array(self.socket, A, metadata)
+        A, metadata = recv_array(self.socket)
+
+        return metadata[method]
+
+    def get_var_shape(self, name):
+        """
+        Return variable shape
+        """
+
+        method = "get_var_shape"
+        
+        A = None
+        metadata = {method : rank}
+
+        send_array(self.socket, A, metadata)
+        A, metadata = recv_array(self.socket)
+
+        return metadata[method]
+
+    def get_var(self, name):
+        """
+        Return an nd array from model library
+        """
+
+        method = "get_var"
+        
+        A = None
+        metadata = {method : name}
+
+        send_array(self.socket, A, metadata)
+        A, metadata = recv_array(self.socket)
+
+        return A
+
+    def set_var(self, name, var):
+        """
+        Set the variable name with the values of var
+        """
+
+        method = "set_var"
+
+        A = var
+        metadata = {method : name}
+
+        send_array(self.socket, A, metadata)
+        A, metadata = recv_array(self.socket)
+
+    def get_start_time(self):
+        """
+        Return start time
+        """
+
+        method = "get_start_time"
+        
+        A = None
+        metadata = {method : -1}
+
+        send_array(self.socket, A, metadata)
+        A, metadata = recv_array(self.socket)
+
+        return metadata[method]
+
+    def get_end_time(self):
+        """
+        Return end time of simulation
+        """
+
+        method = "get_end_time"
+        
+        A = None
+        metadata = {method : -1}
+
+        send_array(self.socket, A, metadata)
+        A, metadata = recv_array(self.socket)
+
+        return metadata[method]
+
+    def get_current_time(self):
+        """
+        Return current time of simulation
+        """
+
+        method = "get_current_time"
+        
+        A = None
+        metadata = {method : -1}
+
+        send_array(self.socket, A, metadata)
+        A, metadata = recv_array(self.socket)
+
+        return metadata[method]
+
+    def update(self, dt):
+        """
+        Advance the module with timestep dt
+        """
+
+        method = "update"
+
+        A = None
+        metadata = {method : dt}
+
+        send_array(self.socket, A, metadata)
+        A, metadata = recv_array(self.socket)
+
+    # TODO:  Do we really need these two?
+    def inq_compound(self, name):
+        """
+        Return the number of fields of a compound type.
         """
         pass
 
-    def get_var_name(self, i):
-        pass
-
-    def get_var_type(self, name):
-        metadata = {'get_var_type': name}
-        send_array(self.sockets['REQ'], None, metadata=metadata)
-        arr, result_meta = recv_array(self.sockets['REQ'])
-        return result_meta['get_var_type']
-
-    def inq_compound(self, name):
-        pass
-
     def inq_compound_field(self, name, index):
-        pass
-
-    def make_compound_ctype(self, varname):
-        pass
-
-    def get_var_rank(self, name):
-        metadata = {'get_var_rank': name}
-        send_array(self.sockets['REQ'], None, metadata=metadata)
-        arr, result_meta = recv_array(self.sockets['REQ'])
-        return int(result_meta['get_var_rank'])
-
-    def get_var_shape(self, name):
-        logger.debug('get_var_shape')
-        metadata = {'get_var_shape': name}
-        send_array(self.sockets['REQ'], None, metadata=metadata)
-        arr, result_meta = recv_array(self.sockets['REQ'])
-        return tuple(result_meta['get_var_shape'])
-
-    def get_start_time(self):
-        metadata = {'get_start_time': None}
-        send_array(self.sockets['REQ'], None, metadata=metadata)
-        arr, result_meta = recv_array(self.sockets['REQ'])
-        return float(result_meta['get_start_time'])
-
-    def get_end_time(self):
-        metadata = {'get_end_time': None}
-        send_array(self.sockets['REQ'], None, metadata=metadata)
-        arr, result_meta = recv_array(self.sockets['REQ'])
-        return float(result_meta['get_end_time'])
-
-    def get_current_time(self):
-        metadata = {'get_current_time': None}
-        send_array(self.sockets['REQ'], None, metadata=metadata)
-        arr, result_meta = recv_array(self.sockets['REQ'])
-        return float(result_meta['get_current_time'])
-
-    def get_time_step(self):
-        pass
-
-    def get_var(self, name):
-        metadata = {'get_var': name}
-        send_array(self.sockets['REQ'], None, metadata=metadata)
-        arr, result_meta = recv_array(self.sockets['REQ'])
-        return arr
-
-    def set_var(self, name, var):
-        pass
-
-    def set_var_slice(self, name, start, count, var):
-        pass
-
-    def set_var_index(self, name, index, var):
-        pass
-
-    def set_structure_field(self, name, id, field, value):
-        pass
-
-    def set_logger(self, logger):
-        pass
-
-    def __enter__(self):
-        pass
-
-    def __exit__(self, type, value, tb):
+        """
+        Lookup the type,rank and shape of a compound field
+        """
         pass
