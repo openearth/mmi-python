@@ -97,7 +97,10 @@ def process_incoming(model, sockets, data):
                     var = model.get_var(name).copy()
                 else:
                     var = model.get_var(name)
-                logger.debug("sending variable %s with shape %s", name, var.shape)
+                if var is None:
+                    logger.warning("Get_var returns None for %s" % name)
+                else:
+                    logger.debug("sending variable %s with shape %s", name, var.shape)
                 metadata['name'] = name
                 # assert socket is req socket
 
