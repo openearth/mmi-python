@@ -20,9 +20,9 @@ class MMIClient(IBmi):
         """
         Initialize the module
         """
-        
+
         method = "initialize"
-        
+
         A = None
         metadata = {method : configfile}
 
@@ -33,9 +33,9 @@ class MMIClient(IBmi):
         """
         Finalize the module
         """
-        
+
         method = "finalize"
-        
+
         A = None
         metadata = {method : -1}
 
@@ -48,7 +48,7 @@ class MMIClient(IBmi):
         """
 
         method = "get_var_count"
-        
+
         A = None
         metadata = {method : -1}
 
@@ -63,7 +63,7 @@ class MMIClient(IBmi):
         """
 
         method = "get_var_name"
-        
+
         A = None
         metadata = {method : i}
 
@@ -78,7 +78,7 @@ class MMIClient(IBmi):
         """
 
         method = "get_var_type"
-        
+
         A = None
         metadata = {method : name}
 
@@ -93,7 +93,7 @@ class MMIClient(IBmi):
         """
 
         method = "get_var_rank"
-        
+
         A = None
         metadata = {method : name}
 
@@ -108,7 +108,7 @@ class MMIClient(IBmi):
         """
 
         method = "get_var_shape"
-        
+
         A = None
         metadata = {method : rank}
 
@@ -123,7 +123,7 @@ class MMIClient(IBmi):
         """
 
         method = "get_var"
-        
+
         A = None
         metadata = {method : name}
 
@@ -151,7 +151,7 @@ class MMIClient(IBmi):
         """
 
         method = "get_start_time"
-        
+
         A = None
         metadata = {method : -1}
 
@@ -166,7 +166,7 @@ class MMIClient(IBmi):
         """
 
         method = "get_end_time"
-        
+
         A = None
         metadata = {method : -1}
 
@@ -181,7 +181,7 @@ class MMIClient(IBmi):
         """
 
         method = "get_current_time"
-        
+
         A = None
         metadata = {method : -1}
 
@@ -215,3 +215,18 @@ class MMIClient(IBmi):
         Lookup the type,rank and shape of a compound field
         """
         pass
+
+    def remote(self, action):
+        """
+        Function specific for MMI, not BMI.
+        action is one of: "play", "stop", "pause", "rewind", "quit"
+        """
+        method = "remote"
+
+        A = None
+        metadata = {method: action}
+
+        send_array(self.socket, A, metadata)
+        A, metadata = recv_array(self.socket)
+
+        return metadata[method]
