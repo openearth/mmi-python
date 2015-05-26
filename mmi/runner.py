@@ -97,7 +97,10 @@ def process_incoming(model, sockets, data):
                     var = model.get_var(name).copy()
                 else:
                     var = model.get_var(name)
-                logger.debug("sending variable %s with shape %s", name, var.shape)
+                if var is None:
+                    logger.warning("Get_var returns None for %s" % name)
+                else:
+                    logger.debug("sending variable %s with shape %s", name, var.shape)
                 metadata['name'] = name
                 # assert socket is req socket
 
@@ -171,7 +174,8 @@ def process_incoming(model, sockets, data):
                 # assert socket is req socket
             # custom actions
             elif "remote" in metadata:
-                assert metadata["remote"] in {"play", "stop", "pause", "rewind"}
+                assert metadata["remote"] in {
+                    "play", "stop", "pause", "rewind", "quit"}
                 model.state = metadata["remote"]
             elif "operator" in metadata:
                 # TODO: support same operators as MPI_ops here....,
@@ -360,7 +364,7 @@ def runner(
 
         # Keep on counting indefinitely
         counter = itertools.count()
-
+        logger.info("Entering timeloop...")
         for i in counter:
             while model.state == "pause":
                 # keep waiting for messages when paused
@@ -368,7 +372,8 @@ def runner(
             else:
                 # otherwise process messages once and continue
                 process_incoming(model, sockets, data)
-            logger.debug("i %s", i)
+            if model.state == "quit":
+                break
 
             # paused ...
             model.update(-1)
@@ -384,6 +389,8 @@ def runner(
                 logger.debug("sending {}".format(metadata))
                 if 'pub' in sockets:
                     send_array(sockets['pub'], value, metadata=metadata)
+
+    logger.info("Exiting...")
 
 
 def main():

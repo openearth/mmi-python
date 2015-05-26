@@ -1,5 +1,7 @@
 import urllib2
 import json
+import requests
+import urlparse
 
 
 class MMITracker(object):
@@ -35,3 +37,8 @@ class MMITracker(object):
         """
         zmq_address = "tcp://" + self.database[key]['node'] + ":" + str(self.database[key]['ports']['REQ'])
         return zmq_address
+
+    def unregister(self, uuid):
+        """Unregister a uuid from tracker"""
+        requests.delete(
+            urlparse.urljoin(self.tracker_url, 'models' + "/" + uuid))
