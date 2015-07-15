@@ -129,7 +129,7 @@ def process_incoming(model, sockets, data):
                 # assert socket is req socket
             elif "set_var" in metadata:
                 name = metadata["set_var"]
-                logger.debug("setting variable %s", name)
+                # logger.debug("setting variable %s", name)
                 model.set_var(name, A)
                 metadata["name"] = name  # !?
             elif "set_var_slice" in metadata:
