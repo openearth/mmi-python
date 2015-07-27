@@ -3,8 +3,9 @@ import zmq
 from mmi import send_array, recv_array
 from bmi.api import IBmi
 
+
 class MMIClient(IBmi):
-    def __init__(self, zmq_address):
+    def __init__(self, zmq_address, poll_timeout=10000):
         """
         Constructor
         """
@@ -15,6 +16,16 @@ class MMIClient(IBmi):
         self.socket = context.socket(zmq.REQ)
         self.socket.connect(zmq_address)
 
+        self.poll = zmq.Poller()
+        self.poll.register(self.socket, zmq.POLLIN)
+
+        self.poll_timeout = poll_timeout
+
+    def _close_sockets(self):
+        self.socket.setsockopt(zmq.LINGER, 0)
+        self.socket.close()
+        self.poll.unregister(self.socket)
+
     # from here: BMI commands that get translated to MMI.
     def initialize(self, configfile=None):
         """
@@ -24,10 +35,11 @@ class MMIClient(IBmi):
         method = "initialize"
 
         A = None
-        metadata = {method : configfile}
+        metadata = {method: configfile}
 
         send_array(self.socket, A, metadata)
-        A, metadata = recv_array(self.socket)
+        A, metadata = recv_array(
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout)
 
     def finalize(self):
         """
@@ -37,10 +49,11 @@ class MMIClient(IBmi):
         method = "finalize"
 
         A = None
-        metadata = {method : -1}
+        metadata = {method: -1}
 
         send_array(self.socket, A, metadata)
-        A, metadata = recv_array(self.socket)
+        A, metadata = recv_array(
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout)
 
     def get_var_count(self):
         """
@@ -50,10 +63,11 @@ class MMIClient(IBmi):
         method = "get_var_count"
 
         A = None
-        metadata = {method : -1}
+        metadata = {method: -1}
 
         send_array(self.socket, A, metadata)
-        A, metadata = recv_array(self.socket)
+        A, metadata = recv_array(
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout)
 
         return metadata[method]
 
@@ -65,10 +79,11 @@ class MMIClient(IBmi):
         method = "get_var_name"
 
         A = None
-        metadata = {method : i}
+        metadata = {method: i}
 
         send_array(self.socket, A, metadata)
-        A, metadata = recv_array(self.socket)
+        A, metadata = recv_array(
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout)
 
         return metadata[method]
 
@@ -80,10 +95,11 @@ class MMIClient(IBmi):
         method = "get_var_type"
 
         A = None
-        metadata = {method : name}
+        metadata = {method: name}
 
         send_array(self.socket, A, metadata)
-        A, metadata = recv_array(self.socket)
+        A, metadata = recv_array(
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout)
 
         return metadata[method]
 
@@ -95,10 +111,11 @@ class MMIClient(IBmi):
         method = "get_var_rank"
 
         A = None
-        metadata = {method : name}
+        metadata = {method: name}
 
         send_array(self.socket, A, metadata)
-        A, metadata = recv_array(self.socket)
+        A, metadata = recv_array(
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout)
 
         return metadata[method]
 
@@ -110,10 +127,11 @@ class MMIClient(IBmi):
         method = "get_var_shape"
 
         A = None
-        metadata = {method : rank}
+        metadata = {method: name}
 
         send_array(self.socket, A, metadata)
-        A, metadata = recv_array(self.socket)
+        A, metadata = recv_array(
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout)
 
         return metadata[method]
 
@@ -125,10 +143,11 @@ class MMIClient(IBmi):
         method = "get_var"
 
         A = None
-        metadata = {method : name}
+        metadata = {method: name}
 
         send_array(self.socket, A, metadata)
-        A, metadata = recv_array(self.socket)
+        A, metadata = recv_array(
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout)
 
         return A
 
@@ -140,10 +159,11 @@ class MMIClient(IBmi):
         method = "set_var"
 
         A = var
-        metadata = {method : name}
+        metadata = {method: name}
 
         send_array(self.socket, A, metadata)
-        A, metadata = recv_array(self.socket)
+        A, metadata = recv_array(
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout)
 
     def get_start_time(self):
         """
@@ -153,10 +173,11 @@ class MMIClient(IBmi):
         method = "get_start_time"
 
         A = None
-        metadata = {method : -1}
+        metadata = {method: -1}
 
         send_array(self.socket, A, metadata)
-        A, metadata = recv_array(self.socket)
+        A, metadata = recv_array(
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout)
 
         return metadata[method]
 
@@ -168,10 +189,11 @@ class MMIClient(IBmi):
         method = "get_end_time"
 
         A = None
-        metadata = {method : -1}
+        metadata = {method: -1}
 
         send_array(self.socket, A, metadata)
-        A, metadata = recv_array(self.socket)
+        A, metadata = recv_array(
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout)
 
         return metadata[method]
 
@@ -183,10 +205,11 @@ class MMIClient(IBmi):
         method = "get_current_time"
 
         A = None
-        metadata = {method : -1}
+        metadata = {method: -1}
 
         send_array(self.socket, A, metadata)
-        A, metadata = recv_array(self.socket)
+        A, metadata = recv_array(
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout)
 
         return metadata[method]
 
@@ -198,10 +221,11 @@ class MMIClient(IBmi):
         method = "update"
 
         A = None
-        metadata = {method : dt}
+        metadata = {method: dt}
 
         send_array(self.socket, A, metadata)
-        A, metadata = recv_array(self.socket)
+        A, metadata = recv_array(
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout)
 
     # TODO:  Do we really need these two?
     def inq_compound(self, name):
@@ -227,6 +251,6 @@ class MMIClient(IBmi):
         metadata = {method: action}
 
         send_array(self.socket, A, metadata)
-        A, metadata = recv_array(self.socket)
+        A, metadata = recv_array(self.socket, poll=self.poll)
 
         return metadata[method]

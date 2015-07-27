@@ -2,12 +2,21 @@
 Model Message Interface
 """
 
-__version__ = '0.1.4'
+__version__ = '0.1.5'
 import datetime
 
 import numpy as np
 import zmq
 import zlib
+
+
+class NoResponseException(Exception):
+    pass
+
+
+class EmptyResponseException(Exception):
+    pass
+
 
 def send_array(socket, A=None, metadata=None, flags=0, copy=False, track=False, compress=None):
     """send a numpy array with metadata over zmq"""
@@ -49,11 +58,44 @@ def send_array(socket, A=None, metadata=None, flags=0, copy=False, track=False, 
     return
 
 
-def recv_array(socket, flags=0, copy=False, track=False):
-    """recv a metadata and an optional numpy array from a zmq socket"""
-    md = socket.recv_json(flags=flags)
+def recv_array(
+    socket, flags=0, copy=False, track=False, poll=None, poll_timeout=10000):
+    """recv a metadata and an optional numpy array from a zmq socket
+
+    Optionally provide poll object to use recv_array with timeout
+
+    poll_timeout is in millis
+    """
+    if poll is None:
+        md = socket.recv_json(flags=flags)
+    else:
+        # one-try "Lazy Pirate" method: http://zguide.zeromq.org/php:chapter4
+        socks = dict(poll.poll(poll_timeout))
+        if socks.get(socket) == zmq.POLLIN:
+            reply = socket.recv_json(flags=flags)
+            if not reply:
+                raise EmptyResponseException(
+                    "Recv_array got an empty response (1)")
+            md = reply
+        else:
+            raise NoResponseException(
+                "Recv_array got no response within timeout (1)")
+
     if socket.getsockopt(zmq.RCVMORE):
-        msg = socket.recv(flags=flags, copy=copy, track=track)
+        if poll is None:
+            msg = socket.recv(flags=flags, copy=copy, track=track)
+        else:
+            # one-try "Lazy Pirate" method: http://zguide.zeromq.org/php:chapter4
+            socks = dict(poll.poll(poll_timeout))
+            if socks.get(socket) == zmq.POLLIN:
+                reply = socket.recv(flags=flags, copy=copy, track=track)
+                if not reply:
+                    raise EmptyResponseException(
+                        "Recv_array got an empty response (2)")
+                msg = reply
+            else:
+                raise NoResponseException(
+                    "Recv_array got no response within timeout (2)")
         buf = buffer(msg)
         A = np.frombuffer(buf, dtype=md['dtype'])
         A = A.reshape(md['shape'])
@@ -63,5 +105,3 @@ def recv_array(socket, flags=0, copy=False, track=False):
         # No array expected
         A = None
     return A, md
-
-
