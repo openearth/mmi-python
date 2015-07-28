@@ -82,12 +82,10 @@ def process_incoming(model, sockets, data):
     for sock, n in items:
         for i in range(n):
             A, metadata = recv_array(sock)
-            logger.debug("got metadata: %s", metadata)
             var = None
             # bmi actions
             if "update" in metadata:
                 dt = float(metadata["update"])
-                logger.debug("updating with dt %s", dt)
                 model.update(dt)
                 metadata["dt"] = dt
             elif "get_var" in metadata:
@@ -99,11 +97,8 @@ def process_incoming(model, sockets, data):
                     var = model.get_var(name)
                 if var is None:
                     logger.warning("Get_var returns None for %s" % name)
-                else:
-                    logger.debug("sending variable %s with shape %s", name, var.shape)
                 metadata['name'] = name
                 # assert socket is req socket
-
             elif "get_var_count" in metadata:
                 # temporary implementation
                 n = model.get_var_count()
@@ -134,7 +129,7 @@ def process_incoming(model, sockets, data):
                 # assert socket is req socket
             elif "set_var" in metadata:
                 name = metadata["set_var"]
-                logger.debug("setting variable %s", name)
+                # logger.debug("setting variable %s", name)
                 model.set_var(name, A)
                 metadata["name"] = name  # !?
             elif "set_var_slice" in metadata:
