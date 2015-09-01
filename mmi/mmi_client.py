@@ -5,7 +5,7 @@ from bmi.api import IBmi
 
 
 class MMIClient(IBmi):
-    def __init__(self, zmq_address, poll_timeout=10000):
+    def __init__(self, zmq_address, poll_timeout=10000, zmq_flags=0):
         """
         Constructor
         """
@@ -20,6 +20,7 @@ class MMIClient(IBmi):
         self.poll.register(self.socket, zmq.POLLIN)
 
         self.poll_timeout = poll_timeout
+        self.zmq_flags = zmq_flags
 
     def _close_sockets(self):
         self.socket.setsockopt(zmq.LINGER, 0)
@@ -39,7 +40,8 @@ class MMIClient(IBmi):
 
         send_array(self.socket, A, metadata)
         A, metadata = recv_array(
-            self.socket, poll=self.poll, poll_timeout=self.poll_timeout)
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout,
+            flags=self.zmq_flags)
 
     def finalize(self):
         """
@@ -53,7 +55,8 @@ class MMIClient(IBmi):
 
         send_array(self.socket, A, metadata)
         A, metadata = recv_array(
-            self.socket, poll=self.poll, poll_timeout=self.poll_timeout)
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout,
+            flags=self.zmq_flags)
 
     def get_var_count(self):
         """
@@ -67,7 +70,8 @@ class MMIClient(IBmi):
 
         send_array(self.socket, A, metadata)
         A, metadata = recv_array(
-            self.socket, poll=self.poll, poll_timeout=self.poll_timeout)
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout,
+            flags=self.zmq_flags)
 
         return metadata[method]
 
@@ -83,7 +87,8 @@ class MMIClient(IBmi):
 
         send_array(self.socket, A, metadata)
         A, metadata = recv_array(
-            self.socket, poll=self.poll, poll_timeout=self.poll_timeout)
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout,
+            flags=self.zmq_flags)
 
         return metadata[method]
 
@@ -99,7 +104,8 @@ class MMIClient(IBmi):
 
         send_array(self.socket, A, metadata)
         A, metadata = recv_array(
-            self.socket, poll=self.poll, poll_timeout=self.poll_timeout)
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout,
+            flags=self.zmq_flags)
 
         return metadata[method]
 
@@ -115,7 +121,8 @@ class MMIClient(IBmi):
 
         send_array(self.socket, A, metadata)
         A, metadata = recv_array(
-            self.socket, poll=self.poll, poll_timeout=self.poll_timeout)
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout,
+            flags=self.zmq_flags)
 
         return metadata[method]
 
@@ -131,7 +138,8 @@ class MMIClient(IBmi):
 
         send_array(self.socket, A, metadata)
         A, metadata = recv_array(
-            self.socket, poll=self.poll, poll_timeout=self.poll_timeout)
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout,
+            flags=self.zmq_flags)
 
         return metadata[method]
 
@@ -147,7 +155,8 @@ class MMIClient(IBmi):
 
         send_array(self.socket, A, metadata)
         A, metadata = recv_array(
-            self.socket, poll=self.poll, poll_timeout=self.poll_timeout)
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout,
+            flags=self.zmq_flags)
 
         return A
 
@@ -163,7 +172,8 @@ class MMIClient(IBmi):
 
         send_array(self.socket, A, metadata)
         A, metadata = recv_array(
-            self.socket, poll=self.poll, poll_timeout=self.poll_timeout)
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout,
+            flags=self.zmq_flags)
 
     def get_start_time(self):
         """
@@ -177,7 +187,8 @@ class MMIClient(IBmi):
 
         send_array(self.socket, A, metadata)
         A, metadata = recv_array(
-            self.socket, poll=self.poll, poll_timeout=self.poll_timeout)
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout,
+            flags=self.zmq_flags)
 
         return metadata[method]
 
@@ -193,7 +204,8 @@ class MMIClient(IBmi):
 
         send_array(self.socket, A, metadata)
         A, metadata = recv_array(
-            self.socket, poll=self.poll, poll_timeout=self.poll_timeout)
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout,
+            flags=self.zmq_flags)
 
         return metadata[method]
 
@@ -209,7 +221,8 @@ class MMIClient(IBmi):
 
         send_array(self.socket, A, metadata)
         A, metadata = recv_array(
-            self.socket, poll=self.poll, poll_timeout=self.poll_timeout)
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout,
+            flags=self.zmq_flags)
 
         return metadata[method]
 
@@ -225,7 +238,8 @@ class MMIClient(IBmi):
 
         send_array(self.socket, A, metadata)
         A, metadata = recv_array(
-            self.socket, poll=self.poll, poll_timeout=self.poll_timeout)
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout,
+            flags=self.zmq_flags)
 
     # TODO:  Do we really need these two?
     def inq_compound(self, name):
@@ -251,6 +265,8 @@ class MMIClient(IBmi):
         metadata = {method: action}
 
         send_array(self.socket, A, metadata)
-        A, metadata = recv_array(self.socket, poll=self.poll)
+        A, metadata = recv_array(
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout,
+            flags=self.zmq_flags)
 
         return metadata[method]
