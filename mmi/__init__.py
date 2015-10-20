@@ -20,7 +20,7 @@ class EmptyResponseException(Exception):
 
 def send_array(
     socket, A=None, metadata=None, flags=0, copy=False, track=False, compress=None,
-    chunksize=100000000):
+    chunksize=10000000):
     """send a numpy array with metadata over zmq
 
     message is mostly multipart:
@@ -68,6 +68,7 @@ def send_array(
     # split array at first dimension and send parts
     for i, a in enumerate(np.array_split(A, md['parts'])):
         # Make a copy if required and pass along the memoryview
+        print(i)
         msg = memoryview(np.ascontiguousarray(a))
         flags_ = flags
         if i != md['parts'] - 1:
@@ -106,6 +107,7 @@ def recv_array(
     else:
         A = np.zeros(0)
         for i in range(md['parts']):
+            print(i)
             # if socket.getsockopt(zmq.RCVMORE):
             if poll is None:
                 msg = socket.recv(flags=flags, copy=copy, track=track)
