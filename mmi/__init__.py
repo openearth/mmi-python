@@ -2,7 +2,7 @@
 Model Message Interface
 """
 
-__version__ = '0.1.6'
+__version__ = '0.1.7'
 import datetime
 
 import numpy as np
