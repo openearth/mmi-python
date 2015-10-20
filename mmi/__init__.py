@@ -100,6 +100,7 @@ def recv_array(
             raise NoResponseException(
                 "Recv_array got no response within timeout (1)")
 
+    print(md)
     if md['parts'] == 0:
         # No array expected
         A = None
