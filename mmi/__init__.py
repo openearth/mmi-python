@@ -51,7 +51,7 @@ def send_array(
     md['dtype'] = str(A.dtype)
     md['shape'] = A.shape
     # determine number of parts
-    md['parts'] = np.prod(A.shape) / chunksize + 1
+    md['parts'] = int(np.prod(A.shape) // chunksize + 1)
     try:
         # If an array has a fill value assume it's an array with missings
         # store the fill_Value in the metadata and fill the array before sending.
