@@ -13,6 +13,6 @@ if __name__ == '__main__':
     size = 1024
     while 1:
         print('sending [size=%d x 10000]...' % size)
-        send_array(socket, np.zeros((size, 10000)))
+        send_array(socket, np.zeros((size, 10000), dtype=np.int8))
         size *= 2
         time.sleep(1)
