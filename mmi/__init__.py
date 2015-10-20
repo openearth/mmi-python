@@ -106,7 +106,7 @@ def recv_array(
         A = None
 
     else:
-        A = np.zeros(np.prod(md['shape']))
+        A = np.zeros(np.prod(md['shape']), dtype=md['dtype'])
         arr_position = 0
         for i in range(md['parts']):
             print(i)
