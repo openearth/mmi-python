@@ -106,7 +106,8 @@ def recv_array(
         A = None
 
     else:
-        A = np.zeros(0)
+        A = np.zeros(np.prod(md['shape']))
+        arr_position = 0
         for i in range(md['parts']):
             print(i)
             # if socket.getsockopt(zmq.RCVMORE):
@@ -126,7 +127,8 @@ def recv_array(
                         "Recv_array got no response within timeout (2)")
             buf = buffer(msg)
             a = np.frombuffer(buf, dtype=md['dtype'])
-            A = np.concatenate((A, a))  # glue all parts together
+            # A = np.concatenate((A, a))  # glue all parts together
+            A[arr_position:arr_position + a.shape[0]] = a[:]
         A.reshape(md['shape'])
 
         if 'fill_value' in md:
