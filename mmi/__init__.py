@@ -131,7 +131,7 @@ def recv_array(
                     "Recv_array got no response within timeout (2)")
         buf = buffer(msg)
         A = np.frombuffer(buf, dtype=md['dtype'])
-        A.reshape(md['shape'])
+        A = A.reshape(md['shape'])
 
         if 'fill_value' in md:
             A = np.ma.masked_equal(A, md['fill_value'])
@@ -159,7 +159,7 @@ def recv_array(
             a = np.frombuffer(buf, dtype=md['dtype'])
             A[arr_position:arr_position + a.shape[0]] = a[:]
             arr_position += a.shape[0]
-        A.reshape(md['shape'])
+        A = A.reshape(md['shape'])
 
         if 'fill_value' in md:
             A = np.ma.masked_equal(A, md['fill_value'])
