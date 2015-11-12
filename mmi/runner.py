@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 Usage:
-  mmi-runner <engine> <configfile> [-o <outputvar>...] [-g <globalvar>...] [--interval <interval>] [--disable-logger] [--pause] [--mpi <method>] [--track <server>] [--port <port>]
+  mmi-runner <engine> <configfile> [-o <outputvar>...] [-g <globalvar>...] [--interval <interval>] [--disable-logger] [--pause] [--mpi <method>] [--track <server>] [--port <port>] [--bmi-class]
   mmi-runner -h | --help
 
 Positional arguments:
@@ -18,6 +18,7 @@ Optional arguments:
   --mpi <method>           communicate with mpi nodes using one of the methods: root (communicate with rank 0), all (one socket per rank)
   --port <port>            "random" or integer base port, port is computed as req/rep = port + rank*3 + 0, push/pull = port + rank*3 + 1, pub/sub = port + rank*3 + 2 [default: random]
   --track <tracker>        server to subscribe to for tracking
+  --bmi-class              when used - the engine is assumed to be the full name of a Python class that implements bmi [default: bmi.wrapper.BMIWrapper]
 
 """
 import os
@@ -39,11 +40,12 @@ import bmi.wrapper
 from mmi import send_array, recv_array
 
 
+
+logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 ioloop.install()
-
 
 # see or an in memory numpy message:
 # http://zeromq.github.io/pyzmq/serialization.html
@@ -81,8 +83,10 @@ def process_incoming(model, sockets, data):
     items = poller.poll(10)
     for sock, n in items:
         for i in range(n):
+
             A, metadata = recv_array(sock)
             var = None
+
             # bmi actions
             if "update" in metadata:
                 dt = float(metadata["update"])
@@ -185,7 +189,7 @@ def process_incoming(model, sockets, data):
                 #     arr[S] += data
             elif "initialize" in metadata:
                 config_file = metadata["initialize"]
-                model.initialize(config_file)
+                model.initialize(str(config_file))
             elif "finalize" in metadata:
                 model.finalize()
             else:
@@ -249,8 +253,7 @@ def create_sockets(ports):
     return sockets
 
 
-def runner(
-    arguments, wrapper_class, wrapper_kwargs={}, extra_metadata={}):
+def runner(arguments, wrapper_kwargs={}, extra_metadata={}):
     """
     MMI Runner
     """
@@ -297,100 +300,112 @@ def runner(
     # not so verbose
     # bmi.wrapper.logger.setLevel(logging.WARN)
 
-    wrapper = wrapper_class(
-        engine=arguments['<engine>'],
-        configfile=arguments['<configfile>'],
-        **wrapper_kwargs)
+    if arguments.get('--bmi-class'):
+        full_name = arguments['<engine>']
+        s = full_name.split('.')
+        class_name = s[-1]
+        module_name = full_name[:-len(class_name)-1]
+        import importlib
+        wrapper_module = importlib.import_module(module_name)
+        wrapper_class = getattr(wrapper_module, class_name)
+        model = wrapper_class()
+
+    else:
+        wrapper_class = bmi.wrapper.BMIWrapper
+        model = wrapper_class(
+            engine=arguments['<engine>'],
+            configfile=arguments['<configfile>'],
+            **wrapper_kwargs)
+    
     # for replying to grid requests
-    with wrapper as model:
-        model.state = "play"
-        if arguments["--pause"]:
-            model.state = "pause"
-            logger.info("model initialized and started in pause mode, waiting for requests ...")
+    model.state = "play"
+    if arguments["--pause"]:
+        model.state = "pause"
+        logger.info("model initialized and started in pause mode, waiting for requests ...")
+    else:
+        logger.info("model started and initialized, running ...")
+
+    if arguments["--track"]:
+        server = arguments["--track"]
+
+        metadata = {}
+        # update connection information from external service
+        # You might want to disable this if you have some sort of sense of privacy
+        try:
+            metadata["ifconfig"] = requests.get("http://ipinfo.io/json").json()
+        except:
+            pass
+        # except requests.exceptions.ConnectionError:
+        #     logger.exception("Could not read ip info from ipinfo.io")
+        #     pass
+        # except simplejson.scanner.JSONDecodeError:
+        #     logger.exception("Could not parse ip info from ipinfo.io")
+        #     pass
+        # node
+        metadata["node"] = platform.node()
+        metadata.update({
+            "engine": arguments['<engine>'],
+            "configfile": arguments['<configfile>'],
+            "ports": ports,
+            "rank": rank,
+            "size": size
+        })
+
+        metadata_filename = os.path.join(
+            os.path.dirname(arguments['<configfile>']),
+            "metadata.json"
+        )
+        if os.path.isfile(metadata_filename):
+            metadata.update(json.load(open(metadata_filename)))
+        metadata.update(extra_metadata)
+
+        register(server, metadata)
+
+    if arguments["--track"]:
+        atexit.register(unregister, server, metadata)
+    # Start a reply process in the background, with variables available
+    # after initialization, sent all at once as py_obj
+    data = {
+        var: model.get_var(var)
+        for var
+        in arguments['-g']
+    }
+    process_incoming(model, sockets, data)
+
+    # Keep on counting indefinitely
+    counter = itertools.count()
+    logger.info("Entering timeloop...")
+    for i in counter:
+        while model.state == "pause":
+            # keep waiting for messages when paused
+            process_incoming(model, sockets, data)
         else:
-            logger.info("model started and initialized, running ...")
+            # otherwise process messages once and continue
+            process_incoming(model, sockets, data)
+        if model.state == "quit":
+            break
 
-        if arguments["--track"]:
-            server = arguments["--track"]
+        # paused ...
+        model.update(-1)
 
-            metadata = {}
-            # update connection information from external service
-            # You might want to disable this if you have some sort of sense of privacy
-            try:
-                metadata["ifconfig"] = requests.get("http://ipinfo.io/json").json()
-            except:
-                pass
-            # except requests.exceptions.ConnectionError:
-            #     logger.exception("Could not read ip info from ipinfo.io")
-            #     pass
-            # except simplejson.scanner.JSONDecodeError:
-            #     logger.exception("Could not parse ip info from ipinfo.io")
-            #     pass
-            # node
-            metadata["node"] = platform.node()
-            metadata.update({
-                "engine": arguments['<engine>'],
-                "configfile": arguments['<configfile>'],
-                "ports": ports,
-                "rank": rank,
-                "size": size
-            })
+        # check counter
+        if arguments.get('--interval') and (i % int(arguments['--interval'])):
+            continue
 
-            metadata_filename = os.path.join(
-                os.path.dirname(arguments['<configfile>']),
-                "metadata.json"
-            )
-            if os.path.isfile(metadata_filename):
-                metadata.update(json.load(open(metadata_filename)))
-            metadata.update(extra_metadata)
-
-            register(server, metadata)
-
-        if arguments["--track"]:
-            atexit.register(unregister, server, metadata)
-        # Start a reply process in the background, with variables available
-        # after initialization, sent all at once as py_obj
-        data = {
-            var: model.get_var(var)
-            for var
-            in arguments['-g']
-        }
-        process_incoming(model, sockets, data)
-
-        # Keep on counting indefinitely
-        counter = itertools.count()
-        logger.info("Entering timeloop...")
-        for i in counter:
-            while model.state == "pause":
-                # keep waiting for messages when paused
-                process_incoming(model, sockets, data)
-            else:
-                # otherwise process messages once and continue
-                process_incoming(model, sockets, data)
-            if model.state == "quit":
-                break
-
-            # paused ...
-            model.update(-1)
-
-            # check counter
-            if arguments.get('--interval') and (i % int(arguments['--interval'])):
-                continue
-
-            for key in arguments['-o']:
-                value = model.get_var(key)
-                metadata = {'name': key, 'iteration': i}
-                # 4ms for 1M doubles
-                logger.debug("sending {}".format(metadata))
-                if 'pub' in sockets:
-                    send_array(sockets['pub'], value, metadata=metadata)
-
+        for key in arguments['-o']:
+            value = model.get_var(key)
+            metadata = {'name': key, 'iteration': i}
+            # 4ms for 1M doubles
+            logger.debug("sending {}".format(metadata))
+            if 'pub' in sockets:
+                send_array(sockets['pub'], value, metadata=metadata)
+    
     logger.info("Exiting...")
 
 
 def main():
     arguments = docopt.docopt(__doc__)
-    runner(arguments, wrapper_class=bmi.wrapper.BMIWrapper)
+    runner(arguments)
 
 
 if __name__ == '__main__':
