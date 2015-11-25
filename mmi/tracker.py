@@ -1,7 +1,7 @@
 import uuid
 import json
-import itertools
-from threading import Thread
+# import itertools
+# from threading import Thread
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
@@ -32,6 +32,7 @@ import tornado.ioloop
 
 from . import send_array, recv_array
 
+
 # TODO: implement somewhere else
 class Views(object):
     @staticmethod
@@ -59,25 +60,28 @@ class Views(object):
         dst_srs = osgeo.osr.SpatialReference()
         dst_srs.ImportFromEPSG(4326)
 
-
-
         transform = osgeo.osr.CoordinateTransformation(src_srs, dst_srs)
         wkt_points = transform.TransformPoints(points[:1000])
         geom = shapely.geometry.MultiPoint(wkt_points)
 
-        geojson =  shapely.geometry.mapping(geom)
+        geojson = shapely.geometry.mapping(geom)
         return geojson
 
+
 views = Views()
+
+
 class WebSocket(tornado.websocket.WebSocketHandler):
     def __init__(self, application, request, **kwargs):
         # self.zmqstream = kwargs.pop('zmqstream')
-        tornado.websocket.WebSocketHandler.__init__(self, application, request,
-                                            **kwargs)
+        tornado.websocket.WebSocketHandler.__init__(
+            self, application, request, **kwargs)
         self.metadata = None
+
     def initialize(self, database, ctx):
         self.database = database
         self.ctx = ctx
+
     def open(self, key):
         logger.debug("websocket opened for key %s", key)
         self.key = key
@@ -143,22 +147,31 @@ class WebSocket(tornado.websocket.WebSocketHandler):
             # pass it along to the socket (push)
             send_array(socket, A, self.metadata)
             self.metadata = None
+
     def on_close(self):
         logger.debug("websocket closed")
+
     def check_origin(self, origin):
         """connect from everywhere"""
         return True
+
+
 class MainHandler(tornado.web.RequestHandler):
+
     def initialize(self, database):
         self.database = database
+
     def get(self):
         self.set_header("Content-Type", "application/json")
         self.write(json.dumps(self.database))
 
+
 class ModelHandler(tornado.web.RequestHandler):
+
     def initialize(self, database, ctx=None):
         self.database = database
         self.ctx = ctx
+
     def get(self, key=None, view=None):
         """Register a new model (models)"""
         self.set_header("Access-Control-Allow-Origin", "*")
@@ -178,6 +191,7 @@ class ModelHandler(tornado.web.RequestHandler):
             result = json.dumps(self.database.values())
 
         self.write(result)
+
     def post(self):
         """Register a new model (models)"""
         self.set_header("Content-Type", "application/json")
@@ -187,13 +201,13 @@ class ModelHandler(tornado.web.RequestHandler):
         self.database[key] = metadata
         result = json.dumps({"uuid": key})
         self.write(result)
+
     def put(self, key, *args, **kwargs):
         # TODO: show a list of running models
         self.database[key] = json.loads(self.request.body)
+
     def delete(self, key, *args, **kwargs):
         del self.database[key]
-
-
 
 
 def app():
@@ -215,11 +229,14 @@ def app():
     # TODO some connection heartbeat that removes stale connections
     return application
 
+
 def main():
     # Use common port not in services...
     # Normally you'd run this behind an nginx
+    logger.info('mmi-tracker')
     application = app()
     application.listen(22222)
+    logger.info('serving at port 22222')
     tornado.ioloop.IOLoop.instance().start()
 
 if __name__ == "__main__":

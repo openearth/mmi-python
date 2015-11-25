@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 Usage:
-  mmi-runner <engine> <configfile> [-o <outputvar>...] [-g <globalvar>...] [--interval <interval>] [--disable-logger] [--pause] [--mpi <method>] [--track <server>] [--port <port>]
+  mmi-runner <engine> <configfile> [-o <outputvar>...] [-g <globalvar>...] [--interval <interval>] [--disable-logger] [--pause] [--mpi <method>] [--track <server>] [--port <port>] [--bmi-class]
   mmi-runner -h | --help
 
 Positional arguments:
@@ -18,17 +18,14 @@ Optional arguments:
   --mpi <method>           communicate with mpi nodes using one of the methods: root (communicate with rank 0), all (one socket per rank)
   --port <port>            "random" or integer base port, port is computed as req/rep = port + rank*3 + 0, push/pull = port + rank*3 + 1, pub/sub = port + rank*3 + 2 [default: random]
   --track <tracker>        server to subscribe to for tracking
+  --bmi-class              when used - the engine is assumed to be the full name of a Python class that implements bmi [default: bmi.wrapper.BMIWrapper]
 
 """
 import os
 import logging
 import json
-import simplejson
 import urlparse
-import datetime
-import logging
 import itertools
-import argparse
 import atexit
 import platform
 
@@ -37,36 +34,35 @@ import requests
 import zmq
 import zmq.eventloop.zmqstream
 from zmq.eventloop import ioloop
-import numpy as np
 
 
 import bmi.wrapper
 from mmi import send_array, recv_array
 
 logging.basicConfig()
-
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 ioloop.install()
 
-
 # see or an in memory numpy message:
 # http://zeromq.github.io/pyzmq/serialization.html
 def register(server, metadata):
     """register model at tracking server"""
-    logger.info("register at server %s with %s", server, metadata)
+    logger.debug("register at server %s with %s", server, metadata)
     # connect to server
     result = requests.post(urlparse.urljoin(server, 'models'), data=json.dumps(metadata))
-    logger.info("got back %s", result.json())
+    logger.debug("got back %s", result.json())
     metadata["tracker"] = result.json()
+
 
 def unregister(server, metadata):
     """unregister model at tracking server"""
     uuid = metadata["tracker"]["uuid"]
     # connect to server
     result = requests.delete(urlparse.urljoin(server, 'models' + "/" + uuid))
-    logger.info("unregistered at server %s with %s: %s", server, uuid, result)
+    logger.debug("unregistered at server %s with %s: %s", server, uuid, result)
+
 
 def process_incoming(model, sockets, data):
     """
@@ -80,18 +76,18 @@ def process_incoming(model, sockets, data):
     # unpack sockets
     poller = sockets['poller']
     rep = sockets['rep']
-    pull = sockets['pull']
+    # pull = sockets['pull']
     pub = sockets['pub']
     items = poller.poll(10)
     for sock, n in items:
         for i in range(n):
+
             A, metadata = recv_array(sock)
-            logger.debug("got metadata: %s", metadata)
             var = None
+
             # bmi actions
             if "update" in metadata:
                 dt = float(metadata["update"])
-                logger.debug("updating with dt %s", dt)
                 model.update(dt)
                 metadata["dt"] = dt
             elif "get_var" in metadata:
@@ -101,14 +97,32 @@ def process_incoming(model, sockets, data):
                     var = model.get_var(name).copy()
                 else:
                     var = model.get_var(name)
-                logger.debug("sending variable %s with shape %s", name, var.shape)
+                if var is None:
+                    logger.warning("Get_var returns None for %s" % name)
                 metadata['name'] = name
                 # assert socket is req socket
-
             elif "get_var_count" in metadata:
                 # temporary implementation
                 n = model.get_var_count()
                 metadata['get_var_count'] = n
+                # assert socket is req socket
+            elif "get_var_rank" in metadata:
+                # temporary implementation
+                var_name = metadata['get_var_rank']
+                n = model.get_var_rank(var_name)
+                metadata['get_var_rank'] = n
+                # assert socket is req socket
+            elif "get_var_shape" in metadata:
+                # temporary implementation
+                var_name = metadata['get_var_shape']
+                n = model.get_var_shape(var_name)
+                metadata['get_var_shape'] = tuple([int(item) for item in n])
+                # assert socket is req socket
+            elif "get_var_type" in metadata:
+                # temporary implementation
+                var_name = metadata['get_var_type']
+                n = model.get_var_type(var_name)
+                metadata['get_var_type'] = n
                 # assert socket is req socket
             elif "get_var_name" in metadata:
                 i = int(metadata["get_var_name"])
@@ -117,7 +131,7 @@ def process_incoming(model, sockets, data):
                 # assert socket is req socket
             elif "set_var" in metadata:
                 name = metadata["set_var"]
-                logger.debug("setting variable %s", name)
+                # logger.debug("setting variable %s", name)
                 model.set_var(name, A)
                 metadata["name"] = name  # !?
             elif "set_var_slice" in metadata:
@@ -157,20 +171,27 @@ def process_incoming(model, sockets, data):
                 # assert socket is req socket
             # custom actions
             elif "remote" in metadata:
-                assert metadata["remote"] in {"play", "stop", "pause", "rewind"}
+                assert metadata["remote"] in {
+                    "play", "stop", "pause", "rewind", "quit"}
                 model.state = metadata["remote"]
             elif "operator" in metadata:
                 # TODO: support same operators as MPI_ops here....,
                 # TODO: reduce before apply
                 # TODO: assert pull socket
-                S = tuple(slice(*x) for x in action['slice'])
-                print(repr(arr[S]))
-                if action['operator'] == 'setitem':
-                    arr[S] = data
-                elif action['operator'] == 'add':
-                    arr[S] += data
+                pass
+                # S = tuple(slice(*x) for x in action['slice'])
+                # print(repr(arr[S]))
+                # if action['operator'] == 'setitem':
+                #     arr[S] = data
+                # elif action['operator'] == 'add':
+                #     arr[S] += data
+            elif "initialize" in metadata:
+                config_file = metadata["initialize"]
+                model.initialize(str(config_file))
+            elif "finalize" in metadata:
+                model.finalize()
             else:
-                logger.warn("got message from unknown socket {}".format(sock))
+                logger.warn("got unknown message {} from socket {}".format(str(metadata), sock))
             if sock.socket_type == zmq.REP:
                 # reply
                 send_array(rep, var, metadata=metadata)
@@ -180,13 +201,15 @@ def process_incoming(model, sockets, data):
                 send_array(pub, var, metadata=metadata)
 
 
-
 def create_sockets(ports):
     context = zmq.Context()
     poller = zmq.Poller()
 
     # Socket to handle init data
     rep = context.socket(zmq.REP)
+    # this was inconsequent: here REQ is for the client, we reply with REP.
+    # PULL and PUB is seen from here, not from the client.
+    # Is now renamed to PUSH and SUB: everything is seen from outside.
     if "REQ" in ports:
         rep.bind(
             "tcp://*:{port}".format(port=ports["REQ"])
@@ -197,23 +220,23 @@ def create_sockets(ports):
         )
 
     pull = context.socket(zmq.PULL)
-    if "PULL" in ports:
+    if "PUSH" in ports:
         pull.bind(
-            "tcp://*:{port}".format(port=ports["PULL"])
+            "tcp://*:{port}".format(port=ports["PUSH"])
         )
     else:
-        ports["PULL"] = pull.bind_to_random_port(
+        ports["PUSH"] = pull.bind_to_random_port(
             "tcp://*"
         )
 
     # for sending model messages
     pub = context.socket(zmq.PUB)
-    if "PUB" in ports:
+    if "SUB" in ports:
         pub.bind(
-            "tcp://*:{port}".format(port=ports["PUB"])
+            "tcp://*:{port}".format(port=ports["SUB"])
         )
     else:
-        ports["PUB"] = pub.bind_to_random_port(
+        ports["SUB"] = pub.bind_to_random_port(
             "tcp://*"
         )
 
@@ -227,12 +250,12 @@ def create_sockets(ports):
     )
     return sockets
 
-def main():
-    arguments = docopt.docopt(__doc__)
-    paused = arguments['--pause']
-    logger.info(arguments)
-    # make a socket that replies to message with the grid
 
+def runner(arguments, wrapper_kwargs={}, extra_metadata={}):
+    """
+    MMI Runner
+    """
+    # make a socket that replies to message with the grid
 
     # if we are running mpi we want to know the rank
     if arguments['--mpi']:
@@ -252,10 +275,9 @@ def main():
         port = int(arguments['--port'])
         ports = {
             "REQ": port + 0,
-            "PULL": port + 1,
-            "PUB": port + 2
+            "PUSH": port + 1,
+            "SUB": port + 2
         }
-
 
     # if we want to communicate with separate domains
     # we have to setup a socket for each of them
@@ -269,96 +291,125 @@ def main():
     if rank == 0 or arguments['--mpi'] == 'all':
         # Create sockets
         sockets = create_sockets(ports)
+        logger.debug("ZMQ MMI Ports:")
+        for key, value in ports.items():
+            logger.debug("%s = %d" % (key, value))
 
     # not so verbose
     # bmi.wrapper.logger.setLevel(logging.WARN)
 
-    wrapper = bmi.wrapper.BMIWrapper(engine=arguments['<engine>'],
-                                     configfile=arguments['<configfile>'])
+    if arguments.get('--bmi-class'):
+        full_name = arguments['<engine>']
+        s = full_name.split('.')
+        class_name = s[-1]
+        module_name = full_name[:-len(class_name)-1]
+        import importlib
+        wrapper_module = importlib.import_module(module_name)
+        wrapper_class = getattr(wrapper_module, class_name)
+        model = wrapper_class()
+
+    else:
+        wrapper_class = bmi.wrapper.BMIWrapper
+        model = wrapper_class(
+            engine=arguments['<engine>'],
+            configfile=arguments['<configfile>'],
+            **wrapper_kwargs)
+    # don't forget to initalize
+    model.initialize()
     # for replying to grid requests
-    with wrapper as model:
-        model.state = "play"
-        if arguments["--pause"]:
-            model.state = "pause"
-            logger.info("model initialized and started in pause mode, wating for requests ...")
-        else:
-            logger.info("model started and initialized, running ...")
+    model.state = "play"
+    if arguments["--pause"]:
+        model.state = "pause"
+        logger.info("model initialized and started in pause mode, waiting for requests ...")
+    else:
+        logger.info("model started and initialized, running ...")
 
-        if arguments["--track"]:
-            server = arguments["--track"]
+    if arguments["--track"]:
+        server = arguments["--track"]
 
-            metadata = {}
-            # update connection information from external service
-            # You might want to disable this if you have some sort of sense of privacy
-            try:
-                metadata["ifconfig"] = requests.get("http://ipinfo.io/json").json()
-            except:
-                pass
-            # except requests.exceptions.ConnectionError:
-            #     logger.exception("Could not read ip info from ipinfo.io")
-            #     pass
-            # except simplejson.scanner.JSONDecodeError:
-            #     logger.exception("Could not parse ip info from ipinfo.io")
-            #     pass
-            # node
-            metadata["node"] = platform.node()
-            metadata.update({
-                "engine": arguments['<engine>'],
-                "configfile": arguments['<configfile>'],
-                "ports": ports,
-                "rank": rank,
-                "size": size
-            })
+        metadata = {}
+        # update connection information from external service
+        # You might want to disable this if you have some sort of sense of privacy
+        try:
+            metadata["ifconfig"] = requests.get("http://ipinfo.io/json").json()
+        except:
+            pass
+        # except requests.exceptions.ConnectionError:
+        #     logger.exception("Could not read ip info from ipinfo.io")
+        #     pass
+        # except simplejson.scanner.JSONDecodeError:
+        #     logger.exception("Could not parse ip info from ipinfo.io")
+        #     pass
+        # node
+        metadata["node"] = platform.node()
+        metadata.update({
+            "engine": arguments['<engine>'],
+            "configfile": arguments['<configfile>'],
+            "ports": ports,
+            "rank": rank,
+            "size": size
+        })
 
-            metadata_filename = os.path.join(
-                os.path.dirname(arguments['<configfile>']),
-                "metadata.json"
-            )
-            if os.path.isfile(metadata_filename):
-                metadata.update(json.load(open(metadata_filename)))
+        metadata_filename = os.path.join(
+            os.path.dirname(arguments['<configfile>']),
+            "metadata.json"
+        )
+        if os.path.isfile(metadata_filename):
+            metadata.update(json.load(open(metadata_filename)))
+        metadata.update(extra_metadata)
 
-            register(server, metadata)
+        register(server, metadata)
 
-        if arguments["--track"]:
-            atexit.register(unregister, server, metadata)
-        # Start a reply process in the background, with variables available
-        # after initialization, sent all at once as py_obj
-        data = {
-            var: model.get_var(var)
-            for var
-            in arguments['-g']
-        }
-        process_incoming(model, sockets, data)
+    if arguments["--track"]:
+        atexit.register(unregister, server, metadata)
+    # Start a reply process in the background, with variables available
+    # after initialization, sent all at once as py_obj
+    data = {
+        var: model.get_var(var)
+        for var
+        in arguments['-g']
+    }
+    process_incoming(model, sockets, data)
 
-        # Keep on counting indefinitely
-        counter = itertools.count()
-
-        for i in counter:
-
-            while model.state == "pause":
-                # keep waiting for messages when paused
-                process_incoming(model, sockets, data)
-            else:
-                # otherwise process messages once and continue
-                process_incoming(model, sockets, data)
-            logger.debug("i %s", i)
-
+    # Keep on counting indefinitely
+    counter = itertools.count()
+    logger.info("Entering timeloop...")
+    for i in counter:
+        while model.state == "pause":
             # paused ...
-            dt = model.get_time_step() or -1
-            model.update(dt)
+            # keep waiting for messages when paused
+            process_incoming(model, sockets, data)
+        else:
+            # otherwise process messages once and continue
+            process_incoming(model, sockets, data)
+        if model.state == "quit":
+            break
+        dt = model.get_time_step() or -1
+        logger.info("using dt %s", dt)
+        model.update(dt)
 
-            # check counter
-            if arguments.get('--interval') and (i % int(arguments['--interval'])):
-                continue
+        # check counter
+        if arguments.get('--interval') and (i % int(arguments['--interval'])):
+            continue
 
-            for key in arguments['-o']:
-                value = model.get_var(key)
-                metadata = {'name': key, 'iteration': i}
-                # 4ms for 1M doubles
-                logger.debug("sending {}".format(metadata))
-                if 'pub' in sockets:
-                    send_array(sockets['pub'], value, metadata=metadata)
+        for key in arguments['-o']:
+            value = model.get_var(key)
+            metadata = {'name': key, 'iteration': i}
+            # 4ms for 1M doubles
+            logger.debug("sending {}".format(metadata))
+            if 'pub' in sockets:
+                send_array(sockets['pub'], value, metadata=metadata)
+
+    logger.info("Exiting...")
+
+
+def main():
+    arguments = docopt.docopt(__doc__)
+    runner(arguments)
+
 
 if __name__ == '__main__':
+    logging.basicConfig()
 
+    logger.info("mmi-runner")
     main()
