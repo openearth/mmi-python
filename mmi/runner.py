@@ -344,7 +344,8 @@ def main():
             logger.debug("i %s", i)
 
             # paused ...
-            model.update(-1)
+            dt = model.get_time_step() or -1
+            model.update(dt)
 
             # check counter
             if arguments.get('--interval') and (i % int(arguments['--interval'])):
@@ -361,4 +362,3 @@ def main():
 if __name__ == '__main__':
 
     main()
-
