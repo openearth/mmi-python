@@ -1,6 +1,8 @@
 Changes
 -------
 
+- Arrays of length 0 are now handled correctly.
+
 - Support for arrays being chopped in chunks. Both sides must have the same
   mmi version.
 

@@ -100,9 +100,7 @@ def recv_array(
         socks = dict(poll.poll(poll_timeout))
         if socks.get(socket) == zmq.POLLIN:
             reply = socket.recv_json(flags=flags)
-            if not reply:
-                raise EmptyResponseException(
-                    "Recv_array got an empty response (1)")
+            # note that reply can be an empty array
             md = reply
         else:
             raise NoResponseException(
@@ -122,9 +120,7 @@ def recv_array(
             socks = dict(poll.poll(poll_timeout))
             if socks.get(socket) == zmq.POLLIN:
                 reply = socket.recv(flags=flags, copy=copy, track=track)
-                if not reply:
-                    raise EmptyResponseException(
-                        "Recv_array got an empty response (2)")
+                # note that reply can be an empty array
                 msg = reply
             else:
                 raise NoResponseException(
