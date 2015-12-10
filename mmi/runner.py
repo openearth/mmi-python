@@ -130,7 +130,11 @@ def process_incoming(model, sockets, data):
             elif "set_var" in metadata:
                 name = metadata["set_var"]
                 # logger.debug("setting variable %s", name)
-                model.set_var(name, A)
+                if "single_value" in metadata:
+                    model.set_var(name, A[0])  # 'depack' from array
+                else:
+                    # normal
+                    model.set_var(name, A)
                 metadata["name"] = name  # !?
             elif "set_var_slice" in metadata:
                 name = metadata["set_var_slice"]

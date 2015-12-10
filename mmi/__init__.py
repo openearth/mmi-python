@@ -50,6 +50,9 @@ def send_array(
         # and we're done
         return
 
+    if type(A) == int or type(A) == float:
+        A = np.array([A])
+        md['single_value'] = True
     # add array metadata
     md['dtype'] = str(A.dtype)
     md['shape'] = A.shape
