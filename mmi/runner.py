@@ -316,7 +316,7 @@ def runner(arguments, wrapper_kwargs={}, extra_metadata={}):
             engine=arguments['<engine>'],
             configfile=arguments['<configfile>'],
             **wrapper_kwargs)
-    
+
     # for replying to grid requests
     model.state = "play"
     if arguments["--pause"]:
@@ -399,9 +399,9 @@ def runner(arguments, wrapper_kwargs={}, extra_metadata={}):
             logger.debug("sending {}".format(metadata))
             if 'pub' in sockets:
                 send_array(sockets['pub'], value, metadata=metadata)
-    
-    logger.info("Exiting...")
 
+    logger.info("Finalizing...")
+    model.finalize()
 
 def main():
     arguments = docopt.docopt(__doc__)
