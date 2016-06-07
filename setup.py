@@ -89,7 +89,8 @@ setup(
         'pyzmq',
         'docopt',
         'bmi',
-        'tornado'
+        'tornado',
+        'six'
 
     ],
     # To provide executable scripts, use entry points in preference to the

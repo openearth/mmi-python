@@ -1,7 +1,7 @@
 import urllib2
 import json
 import requests
-import urlparse
+from six.moves.urllib.parse import urljoin
 
 
 class MMITracker(object):
@@ -41,4 +41,4 @@ class MMITracker(object):
     def unregister(self, uuid):
         """Unregister a uuid from tracker"""
         requests.delete(
-            urlparse.urljoin(self.tracker_url, 'models' + "/" + uuid))
+            urljoin(self.tracker_url, 'models' + "/" + uuid))
