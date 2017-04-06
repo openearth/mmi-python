@@ -5,7 +5,7 @@ import codecs
 # get py3 compatible open
 from io import open
 
-version = '0.1.9.2+nens'
+version = '0.1.9.3+nens.dev0'
 
 # Get the long description from the relevant file
 with open('DESCRIPTION.rst', encoding='utf-8') as f:
