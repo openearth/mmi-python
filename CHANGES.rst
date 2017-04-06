@@ -1,7 +1,7 @@
 Changes
 =======
 
-0.1.9.2+nens (unreleased)
+0.1.9.2+nens (2017-04-06)
 -------------------------
 
 - Added support for single values for send/recv_array.
