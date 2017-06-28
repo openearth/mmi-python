@@ -24,7 +24,7 @@ Optional arguments:
 import os
 import logging
 import json
-import urlparse
+from six.moves.urllib.parse import urljoin
 import itertools
 import atexit
 import platform
@@ -53,7 +53,7 @@ def register(server, metadata):
     """register model at tracking server"""
     logger.debug("register at server %s with %s", server, metadata)
     # connect to server
-    result = requests.post(urlparse.urljoin(server, 'models'), data=json.dumps(metadata))
+    result = requests.post(urljoin(server, 'models'), data=json.dumps(metadata))
     logger.debug("got back %s", result.json())
     metadata["tracker"] = result.json()
 
@@ -62,7 +62,7 @@ def unregister(server, metadata):
     """unregister model at tracking server"""
     uuid = metadata["tracker"]["uuid"]
     # connect to server
-    result = requests.delete(urlparse.urljoin(server, 'models' + "/" + uuid))
+    result = requests.delete(urljoin(server, 'models' + "/" + uuid))
     logger.debug("unregistered at server %s with %s: %s", server, uuid, result)
 
 
