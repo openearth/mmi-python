@@ -88,6 +88,7 @@ setup(
         'docopt',
         'bmi-python',
         'tornado',
+        'requests',
         'six',
         'shapely'
 
