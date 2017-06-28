@@ -88,7 +88,8 @@ setup(
         'docopt',
         'bmi-python',
         'tornado',
-        'six'
+        'six',
+        'shapely'
 
     ],
     # To provide executable scripts, use entry points in preference to the
