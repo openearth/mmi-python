@@ -11,7 +11,12 @@ logger = logging.getLogger(__name__)
 import numpy as np
 import six
 import zmq
-import osgeo.osr
+HAVE_GDAL = False
+try:
+    import osgeo.osr
+    HAVE_GDAL = True
+except ImportError:
+    pass
 import shapely.geometry
 
 from zmq.eventloop.zmqstream import ZMQStream
@@ -33,7 +38,6 @@ import tornado.ioloop
 from . import send_array, recv_array
 
 
-# TODO: implement somewhere else
 class Views(object):
     @staticmethod
     def grid(context):
@@ -55,13 +59,15 @@ class Views(object):
         # Spatial transform
         points = np.c_[xk, yk]
         logger.info("points shape: %s, values: %s", points.shape, points)
-        src_srs = osgeo.osr.SpatialReference()
-        src_srs.ImportFromEPSG(meta["epsg"])
-        dst_srs = osgeo.osr.SpatialReference()
-        dst_srs.ImportFromEPSG(4326)
-
-        transform = osgeo.osr.CoordinateTransformation(src_srs, dst_srs)
-        wkt_points = transform.TransformPoints(points[:1000])
+        if HAVE_GDAL:
+            src_srs = osgeo.osr.SpatialReference()
+            src_srs.ImportFromEPSG(meta["epsg"])
+            dst_srs = osgeo.osr.SpatialReference()
+            dst_srs.ImportFromEPSG(4326)
+            transform = osgeo.osr.CoordinateTransformation(src_srs, dst_srs)
+            wkt_points = transform.TransformPoints(points[:1000])
+        else:
+            wkt_points = points
         geom = shapely.geometry.MultiPoint(wkt_points)
 
         geojson = shapely.geometry.mapping(geom)
