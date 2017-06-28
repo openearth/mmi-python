@@ -9,7 +9,7 @@ import numpy as np
 import zmq
 
 
-__version__ = '0.1.17'
+__version__ = '0.1.18'
 
 
 if sys.version_info > (3, ):
