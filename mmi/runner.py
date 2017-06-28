@@ -317,6 +317,8 @@ def runner(arguments, wrapper_kwargs={}, extra_metadata={}):
             configfile=arguments['<configfile>'],
             **wrapper_kwargs)
 
+    model.initialize()
+
     # for replying to grid requests
     model.state = "play"
     if arguments["--pause"]:
