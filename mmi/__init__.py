@@ -2,12 +2,18 @@
 Model Message Interface
 """
 
-__version__ = '0.1.9'
-
 import datetime
+import sys
 
 import numpy as np
 import zmq
+
+
+__version__ = '0.1.9'
+
+
+if sys.version_info > (3, ):
+    buffer = memoryview
 
 
 class NoResponseException(Exception):
@@ -19,8 +25,10 @@ class EmptyResponseException(Exception):
 
 
 def send_array(
-    socket, A=None, metadata=None, flags=0, copy=False, track=False, compress=None,
-    chunksize=50 * 1000 * 1000):
+        socket, A=None, metadata=None, flags=0,
+        copy=False, track=False, compress=None,
+        chunksize=50 * 1000 * 1000
+):
     """send a numpy array with metadata over zmq
 
     message is mostly multipart:
