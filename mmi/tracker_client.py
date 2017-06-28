@@ -1,5 +1,3 @@
-import urllib2
-import json
 import requests
 from six.moves.urllib.parse import urljoin
 
@@ -14,9 +12,7 @@ class MMITracker(object):
 
     def update(self):
         """Update myself with the tracker server"""
-        response = urllib2.urlopen(self.tracker_url)
-        contents = response.read()
-        self.database = json.loads(contents)
+        self.database = requests.get(self.tracker_url).json()
 
     def key_occurrence(self, key, update=True):
         """
@@ -41,4 +37,5 @@ class MMITracker(object):
     def unregister(self, uuid):
         """Unregister a uuid from tracker"""
         requests.delete(
-            urljoin(self.tracker_url, 'models' + "/" + uuid))
+            urljoin(self.tracker_url, 'models' + "/" + uuid)
+        )

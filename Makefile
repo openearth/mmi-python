@@ -184,6 +184,8 @@ release: clean ## package and upload a release
 bump:
 	bumpversion patch
 
+test: ## run tests quickly with the default Python
+	python setup.py test
 
 clean: clean-build clean-pyc clean-test ## remove all build, test, coverage and Python artifacts
 
