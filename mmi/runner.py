@@ -131,6 +131,9 @@ def process_incoming(model, sockets, data):
                 name = model.get_var_name(i)
                 metadata['get_var_name'] = name
                 # assert socket is req socket
+            elif "set_current_time" in metadata:
+                t = float(metadata["set_current_time"])
+                model.set_current_time(t)
             elif "set_var" in metadata:
                 name = metadata["set_var"]
                 # logger.debug("setting variable %s", name)
