@@ -317,10 +317,9 @@ def runner(arguments, wrapper_kwargs={}, extra_metadata={}):
         wrapper_class = bmi.wrapper.BMIWrapper
         model = wrapper_class(
             engine=arguments['<engine>'],
-            configfile=arguments['<configfile>'],
             **wrapper_kwargs)
 
-    model.initialize()
+    model.initialize(arguments['<configfile>'])
 
     # for replying to grid requests
     model.state = "play"
