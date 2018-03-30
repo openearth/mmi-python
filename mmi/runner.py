@@ -29,7 +29,6 @@ import itertools
 import atexit
 import platform
 
-import docopt
 import requests
 import zmq
 import zmq.eventloop.zmqstream
@@ -206,7 +205,30 @@ def process_incoming(model, sockets, data):
                 send_array(pub, var, metadata=metadata)
 
 
+def create_ports(port=None, mpi='root', rank=0):
+    """create a list of ports for the current rank"""
+    if port == "random" or port is None:
+        # ports will be filled in using random binding
+        ports = {}
+    else:
+        port = int(port)
+        ports = {
+            "REQ": port + 0,
+            "PUSH": port + 1,
+            "SUB": port + 2
+        }
+    # if we want to communicate with separate domains
+    # we have to setup a socket for each of them
+    if mpi == 'all':
+        # use a socket for each rank rank
+        for port in ports:
+            ports[port] += (rank * 3)
+    return ports
+
+
 def create_sockets(ports):
+    """create zmq sockets"""
+
     context = zmq.Context()
     poller = zmq.Poller()
 
@@ -256,123 +278,114 @@ def create_sockets(ports):
     return sockets
 
 
-def runner(arguments, wrapper_kwargs={}, extra_metadata={}):
-    """
-    MMI Runner
-    """
-    # make a socket that replies to message with the grid
-
-    # if we are running mpi we want to know the rank
-    if arguments['--mpi']:
+def initialize_mpi(mpi=False):
+    """initialize mpi settings"""
+    if mpi:
         import mpi4py.MPI
         comm = mpi4py.MPI.COMM_WORLD
         rank = comm.Get_rank()
         size = comm.Get_size()
     else:
         # or we assume it's 0
+        comm = 0
         rank = 0
         size = 1
+    return {
+        "comm": comm,
+        "rank": rank,
+        "size": size
+    }
 
-    if arguments["--port"] == "random":
-        # ports will be filled in
-        ports = {}
-    else:
-        port = int(arguments['--port'])
-        ports = {
-            "REQ": port + 0,
-            "PUSH": port + 1,
-            "SUB": port + 2
-        }
 
-    # if we want to communicate with separate domains
-    # we have to setup a socket for each of them
-    if arguments['--mpi'] == 'all':
-        # use a socket for each rank rank
-        for port in ports:
-            ports[port] += (rank * 3)
+def parse_args(arguments, wrapper_kwargs={}):
+    """
+    MMI Runner
+    """
+    # make a socket that replies to message with the grid
+
+    # if we are running mpi we want to know the rank
+    metadata = {}
+    info = initialize_mpi(arguments['--mpi'])
+    metadata.update(info)
+    ports = create_ports(arguments['--port'], arguments['--mpi'], metadata['rank'])
 
     # now we can create the zmq sockets and poller
     sockets = {}
     if rank == 0 or arguments['--mpi'] == 'all':
         # Create sockets
         sockets = create_sockets(ports)
-        logger.debug("ZMQ MMI Ports:")
-        for key, value in ports.items():
-            logger.debug("%s = %d" % (key, value))
 
-    # not so verbose
-    # bmi.wrapper.logger.setLevel(logging.WARN)
 
-    if arguments.get('--bmi-class'):
-        full_name = arguments['<engine>']
+def create_bmi_model(engine, bmi_class=None, wrapper_kwargs=None):
+    """initialize a bmi mode using an optional class"""
+    if wrapper_kwargs is None:
+        wrapper_kwargs = {}
+    if bmi_class is None:
+        wrapper_class = bmi.wrapper.BMIWrapper
+        model = wrapper_class(
+            engine,
+            **wrapper_kwargs
+        )
+    else:
+        full_name = engine
         s = full_name.split('.')
         class_name = s[-1]
         module_name = full_name[:-len(class_name)-1]
         import importlib
         wrapper_module = importlib.import_module(module_name)
         wrapper_class = getattr(wrapper_module, class_name)
-        model = wrapper_class()
-
-    else:
-        wrapper_class = bmi.wrapper.BMIWrapper
         model = wrapper_class(
-            engine=arguments['<engine>'],
-            **wrapper_kwargs)
-
-    model.initialize(arguments['<configfile>'])
-
-    # for replying to grid requests
-    model.state = "play"
-    if arguments["--pause"]:
-        model.state = "pause"
-        logger.info("model initialized and started in pause mode, waiting for requests ...")
-    else:
-        logger.info("model started and initialized, running ...")
-
-    if arguments["--track"]:
-        server = arguments["--track"]
-
-        metadata = {}
-        # update connection information from external service
-        # You might want to disable this if you have some sort of sense of privacy
-        try:
-            metadata["ifconfig"] = requests.get("http://ipinfo.io/json").json()
-        except:
-            pass
-        # except requests.exceptions.ConnectionError:
-        #     logger.exception("Could not read ip info from ipinfo.io")
-        #     pass
-        # except simplejson.scanner.JSONDecodeError:
-        #     logger.exception("Could not parse ip info from ipinfo.io")
-        #     pass
-        # node
-        metadata["node"] = platform.node()
-        metadata.update({
-            "engine": arguments['<engine>'],
-            "configfile": arguments['<configfile>'],
-            "ports": ports,
-            "rank": rank,
-            "size": size
-        })
-
-        metadata_filename = os.path.join(
-            os.path.dirname(arguments['<configfile>']),
-            "metadata.json"
+            **wrapper_kwargs
         )
-        if os.path.isfile(metadata_filename):
-            metadata.update(json.load(open(metadata_filename)))
-        metadata.update(extra_metadata)
+    # by default start running
+    model.state = 'play'
+    return model
 
-        register(server, metadata)
 
-    if arguments["--track"]:
-        atexit.register(unregister, server, metadata)
+def generate_model_info(model, configfile):
+    metadata = {}
+    metadata["node"] = platform.node()
+    metadata.update({
+        "engine": model.engine,
+        "configfile": configfile,
+        "ports": ports,
+        "rank": rank,
+        "size": size
+    })
+    metadata_filename = os.path.join(
+        os.path.dirname(configfile),
+        "metadata.json"
+    )
+    if os.path.isfile(metadata_filename):
+        metadata.update(json.load(open(metadata_filename)))
+    # update connection information from external service
+    # You might want to disable this if you have some sort of sense of privacy
+    try:
+        metadata["ifconfig"] = requests.get("http://ipinfo.io/json").json()
+    except IOError:
+        pass
+    return metadata
+
+
+def run(model, configfile, tracker, sockets, global_vars, output_vars, interval, metadata):
+    model.initialize(configfile)
+    if model.state == 'pause':
+        logger.info(
+            "model initialized and started in pause mode, waiting for requests"
+        )
+    else:
+        logger.info("model started and initialized, running")
+
+    if tracker:
+        register(tracker, metadata)
+        atexit.register(unregister, tracker, metadata)
+
     # Start a reply process in the background, with variables available
     # after initialization, sent all at once as py_obj
     data = {
         var: model.get_var(var)
         for var
-        in arguments['-g']
+        in global_vars
     }
     process_incoming(model, sockets, data)
 
@@ -392,11 +405,11 @@ def runner(arguments, wrapper_kwargs={}, extra_metadata={}):
         # paused ...
         model.update(-1)
 
-        # check counter
-        if arguments.get('--interval') and (i % int(arguments['--interval'])):
+        # check counter, if not a multiple of interval, skip this step
+        if i % interval:
             continue
 
-        for key in arguments['-o']:
+        for key in output_vars:
             value = model.get_var(key)
             metadata = {'name': key, 'iteration': i}
             # 4ms for 1M doubles
@@ -407,9 +420,10 @@ def runner(arguments, wrapper_kwargs={}, extra_metadata={}):
     logger.info("Finalizing...")
     model.finalize()
 
+
 def main():
     arguments = docopt.docopt(__doc__)
-    runner(arguments)
+    run(**arguments)
 
 
 if __name__ == '__main__':
