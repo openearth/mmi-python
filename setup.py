@@ -7,35 +7,18 @@ from io import open
 
 here = os.path.abspath(os.path.dirname(__file__))
 
-# Read the version number from a source file.
-# Code taken from pip's setup.py
-def find_version(*file_paths):
-    # Open in Latin-1 so that we avoid encoding errors.
-    # Use codecs.open for Python 2 compatibility
-    with codecs.open(os.path.join(here, *file_paths), 'r', 'latin1') as f:
-        version_file = f.read()
-
-    # The version line must have the form
-    # __version__ = 'ver'
-    version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]",
-                              version_file, re.M)
-    if version_match:
-        return version_match.group(1)
-    raise RuntimeError("Unable to find version string.")
-
-
 # Get the long description from the relevant file
 with open('DESCRIPTION.rst', encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
     name="mmi",
-    version=find_version('mmi', '__init__.py'),
+    version='0.19.0',
     description="Model Message Interface",
     long_description=long_description,
 
     # The project URL.
-    url='http://github.com/SiggyF/python-mmi',
+    url='http://github.com/openearth/python-mmi',
 
     # Author details
     author='Fedor Baart',
@@ -49,7 +32,7 @@ setup(
         #   3 - Alpha
         #   4 - Beta
         #   5 - Production/Stable
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 4 - Beta',
 
         # Indicate who your project is intended for
         'Intended Audience :: Science/Research',
@@ -62,10 +45,9 @@ setup(
 
         # Specify the Python versions you support here. In particular, ensure
         # that you indicate whether you support Python 2, Python 3 or both.
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.3',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
     ],
 
     # What does your project relate to?
