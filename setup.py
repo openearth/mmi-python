@@ -67,7 +67,6 @@ setup(
     install_requires=[
         'numpy',
         'pyzmq',
-        'docopt',
         'bmi-python',
         'tornado',
         'requests',
@@ -80,9 +79,7 @@ setup(
     # pip to create the appropriate form of executable for the target platform.
     entry_points={
         'console_scripts': [
-            'mmi-runner=mmi.runner:main',
-            'mmi-curl=mmi.curl:main',
-            'mmi-tracker=mmi.tracker:main',
+            'mmi=mmi.cli:cli',
         ],
-    },
+    }
 )
