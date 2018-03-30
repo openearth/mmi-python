@@ -10,14 +10,12 @@ class MMIClient(IBmi):
         """
         Constructor
         """
-
         # Open ZeroMQ socket
         context = zmq.Context()
 
         self.sockets = {}
-        
-        host, port = urllib.parse.splitport(zmq_address)
 
+        host, port = urllib.parse.splitport(zmq_address)
 
         ports = {
             zmq.REQ: int(port),
@@ -47,7 +45,7 @@ class MMIClient(IBmi):
         self.socket = self.sockets[zmq.REQ]
         self.poll = self.pollers[zmq.REQ]
 
-        
+
     def _close_sockets(self):
         self.socket.setsockopt(zmq.LINGER, 0)
         self.socket.close()
