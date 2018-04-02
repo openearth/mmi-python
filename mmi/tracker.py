@@ -7,7 +7,6 @@ import six
 
 # numpy
 import numpy as np
-import shapely.geometry
 
 # messages
 import zmq
@@ -20,7 +19,8 @@ import tornado.web
 import tornado.ioloop
 
 # mmi
-from . import send_array, recv_array
+from . import send_array
+from .tracker_views import views
 
 ioloop.install()
 
@@ -31,55 +31,11 @@ SOCKET_NAMES = {
         "PUB", "REQ", "REP", "PAIR"}
 }
 
-HAVE_GDAL = False
-try:
-    import osgeo.osr
-    HAVE_GDAL = True
-except ImportError:
-    pass
-
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)
 
 
-class Views(object):
-    @staticmethod
-    def grid(context):
-        meta = context["value"]
-        # Get connection info
-        node = meta['node']
-        node = 'localhost'
-        req_port = meta["ports"]["REQ"]
-        ctx = context["ctx"]
-        req = ctx.socket(zmq.REQ)
-        req.connect("tcp://%s:%s" % (node, req_port))
-        # Get grid variables
-        send_array(req, A=None, metadata={"get_var": "xk"})
-        xk, A = recv_array(req)
-        send_array(req, A=None, metadata={"get_var": "yk"})
-        yk, A = recv_array(req)
-        send_array(req, A=None, metadata={"get_var": "flowelemnode"})
-        yk, A = recv_array(req)
-        # Spatial transform
-        points = np.c_[xk, yk]
-        logger.info("points shape: %s, values: %s", points.shape, points)
-        if HAVE_GDAL:
-            src_srs = osgeo.osr.SpatialReference()
-            src_srs.ImportFromEPSG(meta["epsg"])
-            dst_srs = osgeo.osr.SpatialReference()
-            dst_srs.ImportFromEPSG(4326)
-            transform = osgeo.osr.CoordinateTransformation(src_srs, dst_srs)
-            wkt_points = transform.TransformPoints(points[:1000])
-        else:
-            wkt_points = points
-        geom = shapely.geometry.MultiPoint(wkt_points)
-
-        geojson = shapely.geometry.mapping(geom)
-        return geojson
-
-
-views = Views()
 
 
 class WebSocket(tornado.websocket.WebSocketHandler):
@@ -90,6 +46,8 @@ class WebSocket(tornado.websocket.WebSocketHandler):
         self.metadata = None
 
     def initialize(self, database, ctx):
+        # TODO: use database that supports timeout, persistency, logging, key value store
+        # perhaps redis
         self.database = database
         self.ctx = ctx
 
@@ -134,6 +92,7 @@ class WebSocket(tornado.websocket.WebSocketHandler):
         # use the zmqstream as a socket (send, send_json)
         socket = self.pushstream
 
+        # TODO: can we just forward the bytes without deserializing?
         if isinstance(message, six.text_type):
             metadata = json.loads(message)
             logger.debug("got metadata %s", metadata)
