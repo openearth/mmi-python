@@ -18,7 +18,7 @@ Optional arguments:
   --port <port>            "random" or integer base port, port is computed as req/rep = port + rank*3 + 0, push/pull = port + rank*3 + 1, pub/sub = port + rank*3 + 2 [default: random]
   --track <tracker>        server to subscribe to for tracking
   --bmi-class <bmi-class>  when used the engine is assumed to be the full name of a Python class that implements bmi [default: bmi.wrapper.BMIWrapper]
-"""
+"""  # noqa: E501
 
 
 import warnings

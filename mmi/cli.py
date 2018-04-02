@@ -5,6 +5,8 @@ import sys
 import click
 
 import mmi.runner
+
+
 @click.group()
 def cli(args=None):
     """Console script for mmi."""
@@ -45,7 +47,9 @@ def cli(args=None):
 @click.option(
     '--port',
     type=int,
-    help='"random" or integer base port, port is computed as req/rep = port + rank*3 + 0, push/pull = port + rank*3 + 1, pub/sub = port + rank*3 + 2 [default: random]'
+    help='''"random" or integer base port,
+    port is computed as req/rep = port + rank*3 + 0, push/pull = port + rank*3 + 1, pub/sub = port + rank*3 + 2 [default: random]
+    '''
 )
 @click.option(
     '--bmi-class',

@@ -29,6 +29,7 @@ def context():
     ctx = zmq.Context()
     yield ctx
 
+
 @pytest.fixture()
 def arr():
     arr = np.array([1, 2, 3])

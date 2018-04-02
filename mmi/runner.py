@@ -1,6 +1,5 @@
 import importlib
 import os
-import inspect
 import logging
 import json
 from six.moves.urllib.parse import urljoin
@@ -103,7 +102,6 @@ class Runner(object):
                 ports[port] += (rank * 3)
         return ports
 
-
     @staticmethod
     def import_from_string(full_class_name):
         """return a class based on it's full class name"""
@@ -142,21 +140,19 @@ class Runner(object):
         model.state = 'play'
         return model
 
-
-    # see or an in memory numpy message:
-    # http://zeromq.github.io/pyzmq/serialization.html
     def register(self):
         """register model at tracking server"""
         # connect to tracker
         result = requests.post(urljoin(self.tracker, 'models'), data=json.dumps(self.metadata))
+        logger.debug("registered at server %s: %s", self.tracker, result)
         self.metadata["tracker"] = result.json()
 
     def unregister(self):
         """unregister model at tracking server"""
         uuid = self.metadata["tracker"]["uuid"]
         # connect to server
-        result = requests.delete(urljoin(server, 'models' + "/" + uuid))
-        logger.debug("unregistered at server %s with %s: %s", server, uuid, result)
+        result = requests.delete(urljoin(self.tracker, 'models' + "/" + uuid))
+        logger.debug("unregistered at server %s with %s: %s", self.tracker, uuid, result)
 
     def fill_metadata(self):
         self.metadata["node"] = platform.node()
@@ -174,7 +170,7 @@ class Runner(object):
             "metadata.json"
         )
         if os.path.isfile(metadata_filename):
-            sself.metadata.update(json.load(open(metadata_filename)))
+            self.metadata.update(json.load(open(metadata_filename)))
         # update connection information from external service
         # You might want to disable this if you have some sort of sense of privacy
         try:
@@ -378,9 +374,6 @@ class Runner(object):
         )
         return sockets
 
-
-
-
     def run(self):
         """run the model"""
 
@@ -388,7 +381,6 @@ class Runner(object):
         configfile = self.configfile
         interval = self.interval
         sockets = self.sockets
-
 
         model.initialize(configfile)
         if model.state == 'pause':

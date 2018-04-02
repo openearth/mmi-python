@@ -32,7 +32,6 @@ class MMIClient(IBmi):
                 ])
             )
 
-
         self.pollers = {}
         for socket in [zmq.REQ, zmq.PUSH, zmq.SUB]:
             poller = zmq.Poller()
@@ -44,7 +43,6 @@ class MMIClient(IBmi):
 
         self.socket = self.sockets[zmq.REQ]
         self.poll = self.pollers[zmq.REQ]
-
 
     def _close_sockets(self):
         self.socket.setsockopt(zmq.LINGER, 0)

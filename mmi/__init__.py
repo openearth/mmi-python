@@ -95,7 +95,13 @@ def send_array(
 
 
 def recv_array(
-    socket, flags=0, copy=False, track=False, poll=None, poll_timeout=10000):
+        socket,
+        flags=0,
+        copy=False,
+        track=False,
+        poll=None,
+        poll_timeout=10000
+):
     """recv a metadata and an optional numpy array from a zmq socket
 
     Optionally provide poll object to use recv_array with timeout
