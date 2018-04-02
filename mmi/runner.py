@@ -402,6 +402,7 @@ class Runner(object):
         for i in counter:
             while model.state == "pause":
                 # keep waiting for messages when paused
+                # process_incoming should set model.state to play
                 self.process_incoming()
             else:
                 # otherwise process messages once and continue
@@ -409,8 +410,9 @@ class Runner(object):
             if model.state == "quit":
                 break
 
-            # paused ...
-            model.update(-1)
+            # lookup dt or use -1 (default)
+            dt = model.get_time_step() or -1
+            model.update(dt)
 
             # check counter, if not a multiple of interval, skip this step
             if i % interval:
