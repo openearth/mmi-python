@@ -8,6 +8,6 @@ RUN apt-get update \
     && apt-get clean
 
 COPY ./ app/
-RUN pip3 install app
+RUN pip3 install ./app
 EXPOSE 22222
-CMD [ "mmi-tracker" ]
+CMD [ "mmi", "tracker" ]

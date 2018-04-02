@@ -1,7 +1,6 @@
 from setuptools import setup, find_packages
 import os
-import re
-import codecs
+
 # get py3 compatible open
 from io import open
 
@@ -67,8 +66,8 @@ setup(
         'tornado',
         'requests',
         'six',
-        'shapely'
-
+        'shapely',
+        'click'
     ],
     # To provide executable scripts, use entry points in preference to the
     # "scripts" keyword. Entry points provide cross-platform support and allow
