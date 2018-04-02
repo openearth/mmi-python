@@ -18,15 +18,14 @@ import json
 
 import zmq
 import zmq.eventloop.zmqstream
-from zmq.eventloop import ioloop
-import numpy as np
 import docopt
+
+from . import send_array, recv_array
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-from mmi import send_array, recv_array
 
 def main():
     arguments = docopt.docopt(__doc__)
@@ -55,8 +54,3 @@ def main():
         value = None
         send_array(req, value, metadata=metadata)
         logger.info("metadata: %s", metadata)
-
-
-
-
-

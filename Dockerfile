@@ -8,6 +8,8 @@ RUN apt-get update \
     && apt-get clean
 
 COPY ./ app/
-RUN pip3 install app
+ENV LC_ALL=C.UTF-8
+ENV LANG=C.UTF-8
+RUN pip3 install ./app
 EXPOSE 22222
-CMD [ "mmi-tracker" ]
+CMD [ "mmi", "tracker" ]

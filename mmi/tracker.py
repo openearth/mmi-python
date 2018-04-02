@@ -1,26 +1,27 @@
 import uuid
 import json
-# import itertools
-# from threading import Thread
 import logging
 
-logging.basicConfig(level=logging.DEBUG)
-
-logger = logging.getLogger(__name__)
-
-import numpy as np
+# compatibility
 import six
-import zmq
-HAVE_GDAL = False
-try:
-    import osgeo.osr
-    HAVE_GDAL = True
-except ImportError:
-    pass
-import shapely.geometry
 
+# numpy
+import numpy as np
+
+# messages
+import zmq
 from zmq.eventloop.zmqstream import ZMQStream
 from zmq.eventloop import ioloop
+
+# server
+import tornado.websocket
+import tornado.web
+import tornado.ioloop
+
+# mmi
+from . import send_array
+from .tracker_views import views
+
 ioloop.install()
 
 SOCKET_NAMES = {
@@ -31,50 +32,10 @@ SOCKET_NAMES = {
 }
 
 
-import tornado.websocket
-import tornado.web
-import tornado.ioloop
-
-from . import send_array, recv_array
+logging.basicConfig()
+logger = logging.getLogger(__name__)
 
 
-class Views(object):
-    @staticmethod
-    def grid(context):
-        meta = context["value"]
-        # Get connection info
-        node = meta['node']
-        node = 'localhost'
-        req_port = meta["ports"]["REQ"]
-        ctx = context["ctx"]
-        req = ctx.socket(zmq.REQ)
-        req.connect("tcp://%s:%s" % (node, req_port))
-        # Get grid variables
-        send_array(req, A=None, metadata={"get_var": "xk"})
-        xk, A = recv_array(req)
-        send_array(req, A=None, metadata={"get_var": "yk"})
-        yk, A = recv_array(req)
-        send_array(req, A=None, metadata={"get_var": "flowelemnode"})
-        yk, A = recv_array(req)
-        # Spatial transform
-        points = np.c_[xk, yk]
-        logger.info("points shape: %s, values: %s", points.shape, points)
-        if HAVE_GDAL:
-            src_srs = osgeo.osr.SpatialReference()
-            src_srs.ImportFromEPSG(meta["epsg"])
-            dst_srs = osgeo.osr.SpatialReference()
-            dst_srs.ImportFromEPSG(4326)
-            transform = osgeo.osr.CoordinateTransformation(src_srs, dst_srs)
-            wkt_points = transform.TransformPoints(points[:1000])
-        else:
-            wkt_points = points
-        geom = shapely.geometry.MultiPoint(wkt_points)
-
-        geojson = shapely.geometry.mapping(geom)
-        return geojson
-
-
-views = Views()
 
 
 class WebSocket(tornado.websocket.WebSocketHandler):
@@ -85,6 +46,8 @@ class WebSocket(tornado.websocket.WebSocketHandler):
         self.metadata = None
 
     def initialize(self, database, ctx):
+        # TODO: use database that supports timeout, persistency, logging, key value store
+        # perhaps redis
         self.database = database
         self.ctx = ctx
 
@@ -95,16 +58,16 @@ class WebSocket(tornado.websocket.WebSocketHandler):
 
         # open push socket to forward incoming zmq messages
         push = self.ctx.socket(zmq.PUSH)
-        pull_port = self.database[key]["ports"]['PULL']
+        push_port = self.database[key]["ports"]['PUSH']
         node = "localhost"
         # node = self.database[key]["node"]
 
-        push.connect("tcp://%s:%d" % (node, pull_port))
+        push.connect("tcp://%s:%d" % (node, push_port))
         self.pushstream = ZMQStream(push)
 
         sub = self.ctx.socket(zmq.SUB)
-        pub_port = self.database[key]["ports"]['PUB']
-        sub.connect("tcp://%s:%d" % (node, pub_port))
+        sub_port = self.database[key]["ports"]['SUB']
+        sub.connect("tcp://%s:%d" % (node, sub_port))
         # Accept all messages
         sub.setsockopt(zmq.SUBSCRIBE, '')
         self.substream = ZMQStream(sub)
@@ -129,6 +92,7 @@ class WebSocket(tornado.websocket.WebSocketHandler):
         # use the zmqstream as a socket (send, send_json)
         socket = self.pushstream
 
+        # TODO: can we just forward the bytes without deserializing?
         if isinstance(message, six.text_type):
             metadata = json.loads(message)
             logger.debug("got metadata %s", metadata)
@@ -202,7 +166,7 @@ class ModelHandler(tornado.web.RequestHandler):
         """Register a new model (models)"""
         self.set_header("Content-Type", "application/json")
         key = uuid.uuid4().hex
-        metadata = json.loads(self.request.body)
+        metadata = json.loads(self.request.body.decode())
         metadata["uuid"] = key
         self.database[key] = metadata
         result = json.dumps({"uuid": key})
@@ -244,6 +208,7 @@ def main():
     application.listen(22222)
     logger.info('serving at port 22222')
     tornado.ioloop.IOLoop.instance().start()
+
 
 if __name__ == "__main__":
     main()

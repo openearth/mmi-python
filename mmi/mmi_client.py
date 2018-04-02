@@ -1,26 +1,51 @@
+import urllib.parse
+
 import zmq
 
-from mmi import send_array, recv_array
 from bmi.api import IBmi
+
+from mmi import send_array, recv_array
 
 
 class MMIClient(IBmi):
+    """Client to talk to MMI server, using the same API as BMI"""
     def __init__(self, zmq_address, poll_timeout=10000, zmq_flags=0):
         """
         Constructor
         """
-
         # Open ZeroMQ socket
         context = zmq.Context()
 
-        self.socket = context.socket(zmq.REQ)
-        self.socket.connect(zmq_address)
+        self.sockets = {}
 
-        self.poll = zmq.Poller()
-        self.poll.register(self.socket, zmq.POLLIN)
+        host, port = urllib.parse.splitport(zmq_address)
+
+        ports = {
+            zmq.REQ: int(port),
+            zmq.PUSH: int(port) + 1,
+            zmq.SUB: int(port) + 2
+        }
+
+        for socket, port in ports.items():
+            self.sockets[socket] = context.socket(socket)
+            self.sockets[socket].connect(
+                ":".join([
+                    host,
+                    str(port)
+                ])
+            )
+
+        self.pollers = {}
+        for socket in [zmq.REQ, zmq.PUSH, zmq.SUB]:
+            poller = zmq.Poller()
+            self.pollers[socket] = poller
+            self.pollers[socket].register(self.sockets[socket], zmq.POLLIN)
 
         self.poll_timeout = poll_timeout
         self.zmq_flags = zmq_flags
+
+        self.socket = self.sockets[zmq.REQ]
+        self.poll = self.pollers[zmq.REQ]
 
     def _close_sockets(self):
         self.socket.setsockopt(zmq.LINGER, 0)
@@ -285,3 +310,7 @@ class MMIClient(IBmi):
             flags=self.zmq_flags)
 
         return metadata[method]
+
+    def subscribe(self, topic=b''):
+        """subscribe to the SUB socket, to listen for incomming variables"""
+        self.sockets[zmq.SUB].setsockopt(zmq.SUBSCRIBE, topic)

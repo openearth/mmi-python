@@ -9,7 +9,7 @@ import numpy as np
 import zmq
 
 
-__version__ = '0.1.18'
+__version__ = '0.2.1'
 
 
 if sys.version_info > (3, ):
@@ -59,6 +59,10 @@ def send_array(
         # and we're done
         return
 
+    # support single values (empty shape)
+    if isinstance(A, float) or isinstance(A, int):
+        A = np.asarray(A)
+
     # add array metadata
     md['dtype'] = str(A.dtype)
     md['shape'] = A.shape
@@ -95,7 +99,13 @@ def send_array(
 
 
 def recv_array(
-    socket, flags=0, copy=False, track=False, poll=None, poll_timeout=10000):
+        socket,
+        flags=0,
+        copy=False,
+        track=False,
+        poll=None,
+        poll_timeout=10000
+):
     """recv a metadata and an optional numpy array from a zmq socket
 
     Optionally provide poll object to use recv_array with timeout
