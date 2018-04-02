@@ -24,7 +24,7 @@ Optional arguments:
 import os
 import logging
 import json
-import urlparse
+from six.moves.urllib.parse import urljoin
 import itertools
 import atexit
 import platform
@@ -51,7 +51,7 @@ def register(server, metadata):
     """register model at tracking server"""
     logger.debug("register at server %s with %s", server, metadata)
     # connect to server
-    result = requests.post(urlparse.urljoin(server, 'models'), data=json.dumps(metadata))
+    result = requests.post(urljoin(server, 'models'), data=json.dumps(metadata))
     logger.debug("got back %s", result.json())
     metadata["tracker"] = result.json()
 
@@ -60,7 +60,7 @@ def unregister(server, metadata):
     """unregister model at tracking server"""
     uuid = metadata["tracker"]["uuid"]
     # connect to server
-    result = requests.delete(urlparse.urljoin(server, 'models' + "/" + uuid))
+    result = requests.delete(urljoin(server, 'models' + "/" + uuid))
     logger.debug("unregistered at server %s with %s: %s", server, uuid, result)
 
 
@@ -129,6 +129,9 @@ def process_incoming(model, sockets, data):
                 name = model.get_var_name(i)
                 metadata['get_var_name'] = name
                 # assert socket is req socket
+            elif "set_current_time" in metadata:
+                t = float(metadata["set_current_time"])
+                model.set_current_time(t)
             elif "set_var" in metadata:
                 name = metadata["set_var"]
                 # logger.debug("setting variable %s", name)
@@ -312,10 +315,8 @@ def runner(arguments, wrapper_kwargs={}, extra_metadata={}):
         wrapper_class = bmi.wrapper.BMIWrapper
         model = wrapper_class(
             engine=arguments['<engine>'],
-            configfile=arguments['<configfile>'],
             **wrapper_kwargs)
-    # don't forget to initalize
-    model.initialize()
+    model.initialize(arguments['<configfile>'])
     # for replying to grid requests
     model.state = "play"
     if arguments["--pause"]:
@@ -399,9 +400,8 @@ def runner(arguments, wrapper_kwargs={}, extra_metadata={}):
             logger.debug("sending {}".format(metadata))
             if 'pub' in sockets:
                 send_array(sockets['pub'], value, metadata=metadata)
-
-    logger.info("Exiting...")
-
+    logger.info("Finalizing...")
+    model.finalize()
 
 def main():
     arguments = docopt.docopt(__doc__)

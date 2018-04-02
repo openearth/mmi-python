@@ -65,8 +65,6 @@ setup(
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.1',
-        'Programming Language :: Python :: 3.2',
         'Programming Language :: Python :: 3.3',
     ],
 
@@ -88,8 +86,11 @@ setup(
         'numpy',
         'pyzmq',
         'docopt',
-        'bmi',
-        'tornado'
+        'bmi-python',
+        'tornado',
+        'requests',
+        'six',
+        'shapely'
 
     ],
     # To provide executable scripts, use entry points in preference to the

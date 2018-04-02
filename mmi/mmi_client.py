@@ -160,6 +160,21 @@ class MMIClient(IBmi):
 
         return A
 
+    def set_current_time(self, t):
+        """
+        Set current time of simulation
+        """
+
+        method = "set_current_time"
+
+        A = None
+        metadata = {method: t}
+
+        send_array(self.socket, A, metadata)
+        A, metadata = recv_array(
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout,
+            flags=self.zmq_flags)
+
     def set_var(self, name, var):
         """
         Set the variable name with the values of var
