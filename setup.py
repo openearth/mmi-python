@@ -80,6 +80,9 @@ setup(
     entry_points={
         'console_scripts': [
             'mmi=mmi.cli:cli',
+            'mmi-runner=mmi.runner_legacy:main',
+            'mmi-curl=mmi.curl:main',
+            'mmi-tracker=mmi.tracker:main'
         ],
     }
 )
