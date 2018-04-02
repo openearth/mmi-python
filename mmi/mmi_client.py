@@ -1,11 +1,14 @@
 import urllib.parse
+
 import zmq
 
-from mmi import send_array, recv_array
 from bmi.api import IBmi
+
+from mmi import send_array, recv_array
 
 
 class MMIClient(IBmi):
+    """Client to talk to MMI server, using the same API as BMI"""
     def __init__(self, zmq_address, poll_timeout=10000, zmq_flags=0):
         """
         Constructor

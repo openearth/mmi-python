@@ -1,26 +1,27 @@
 import uuid
 import json
-# import itertools
-# from threading import Thread
 import logging
 
-logging.basicConfig(level=logging.DEBUG)
-
-logger = logging.getLogger(__name__)
-
-import numpy as np
+# compatibility
 import six
-import zmq
-HAVE_GDAL = False
-try:
-    import osgeo.osr
-    HAVE_GDAL = True
-except ImportError:
-    pass
+
+# numpy
+import numpy as np
 import shapely.geometry
 
+# messages
+import zmq
 from zmq.eventloop.zmqstream import ZMQStream
 from zmq.eventloop import ioloop
+
+# server
+import tornado.websocket
+import tornado.web
+import tornado.ioloop
+
+# mmi
+from . import send_array, recv_array
+
 ioloop.install()
 
 SOCKET_NAMES = {
@@ -30,12 +31,16 @@ SOCKET_NAMES = {
         "PUB", "REQ", "REP", "PAIR"}
 }
 
+HAVE_GDAL = False
+try:
+    import osgeo.osr
+    HAVE_GDAL = True
+except ImportError:
+    pass
 
-import tornado.websocket
-import tornado.web
-import tornado.ioloop
 
-from . import send_array, recv_array
+logging.basicConfig()
+logger = logging.getLogger(__name__)
 
 
 class Views(object):
@@ -244,6 +249,7 @@ def main():
     application.listen(22222)
     logger.info('serving at port 22222')
     tornado.ioloop.IOLoop.instance().start()
+
 
 if __name__ == "__main__":
     main()

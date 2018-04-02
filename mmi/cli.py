@@ -1,10 +1,18 @@
 # -*- coding: utf-8 -*-
 
 """Console script for mmi."""
+
+import logging
 import sys
+
 import click
+import tornado.ioloop
 
 import mmi.runner
+import mmi.tracker
+
+logging.basicConfig()
+logger = logging.getLogger(__name__)
 
 
 @click.group()
@@ -12,6 +20,15 @@ def cli(args=None):
     """Console script for mmi."""
     click.echo("Model Message Interface")
     return 0
+
+
+@cli.command()
+def tracker():
+    """start a tracker to register running models"""
+    application = mmi.tracker.app()
+    application.listen(22222)
+    logger.info('serving at port 22222')
+    tornado.ioloop.IOLoop.instance().start()
 
 
 @cli.command()
@@ -69,7 +86,7 @@ def runner(
         bmi_class
 ):
     """
-    Run a BMI compatible model
+    run a BMI compatible model
     """
     # keep track of info
     # update mpi information or use rank 0
