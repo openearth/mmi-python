@@ -207,7 +207,7 @@ class ModelHandler(tornado.web.RequestHandler):
         """Register a new model (models)"""
         self.set_header("Content-Type", "application/json")
         key = uuid.uuid4().hex
-        metadata = json.loads(self.request.body)
+        metadata = json.loads(self.request.body.decode())
         metadata["uuid"] = key
         self.database[key] = metadata
         result = json.dumps({"uuid": key})
