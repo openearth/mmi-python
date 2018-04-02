@@ -39,8 +39,6 @@ from zmq.eventloop import ioloop
 import bmi.wrapper
 from mmi import send_array, recv_array
 
-
-
 logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -318,9 +316,7 @@ def runner(arguments, wrapper_kwargs={}, extra_metadata={}):
         model = wrapper_class(
             engine=arguments['<engine>'],
             **wrapper_kwargs)
-
     model.initialize(arguments['<configfile>'])
-
     # for replying to grid requests
     model.state = "play"
     if arguments["--pause"]:
@@ -381,6 +377,7 @@ def runner(arguments, wrapper_kwargs={}, extra_metadata={}):
     logger.info("Entering timeloop...")
     for i in counter:
         while model.state == "pause":
+            # paused ...
             # keep waiting for messages when paused
             process_incoming(model, sockets, data)
         else:
@@ -388,9 +385,9 @@ def runner(arguments, wrapper_kwargs={}, extra_metadata={}):
             process_incoming(model, sockets, data)
         if model.state == "quit":
             break
-
-        # paused ...
-        model.update(-1)
+        dt = model.get_time_step() or -1
+        logger.info("using dt %s", dt)
+        model.update(dt)
 
         # check counter
         if arguments.get('--interval') and (i % int(arguments['--interval'])):
@@ -403,7 +400,6 @@ def runner(arguments, wrapper_kwargs={}, extra_metadata={}):
             logger.debug("sending {}".format(metadata))
             if 'pub' in sockets:
                 send_array(sockets['pub'], value, metadata=metadata)
-
     logger.info("Finalizing...")
     model.finalize()
 

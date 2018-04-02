@@ -95,16 +95,16 @@ class WebSocket(tornado.websocket.WebSocketHandler):
 
         # open push socket to forward incoming zmq messages
         push = self.ctx.socket(zmq.PUSH)
-        pull_port = self.database[key]["ports"]['PULL']
+        push_port = self.database[key]["ports"]['PUSH']
         node = "localhost"
         # node = self.database[key]["node"]
 
-        push.connect("tcp://%s:%d" % (node, pull_port))
+        push.connect("tcp://%s:%d" % (node, push_port))
         self.pushstream = ZMQStream(push)
 
         sub = self.ctx.socket(zmq.SUB)
-        pub_port = self.database[key]["ports"]['PUB']
-        sub.connect("tcp://%s:%d" % (node, pub_port))
+        sub_port = self.database[key]["ports"]['SUB']
+        sub.connect("tcp://%s:%d" % (node, sub_port))
         # Accept all messages
         sub.setsockopt(zmq.SUBSCRIBE, '')
         self.substream = ZMQStream(sub)
