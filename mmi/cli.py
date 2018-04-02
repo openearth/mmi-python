@@ -19,13 +19,6 @@ def cli(args=None):
     type=click.Path(exists=True)
 )
 @click.option(
-    '--global',
-    '-g',
-    'global_vars',
-    multiple=True,
-    help='global variables, will be send on request'
-)
-@click.option(
     '--output',
     '-o',
     'output_vars',
@@ -62,11 +55,10 @@ def cli(args=None):
 def runner(
         engine,
         configfile,
-        global_vars,
         output_vars,
         interval,
         pause,
-        mpi, tracker,
+        tracker,
         port,
         bmi_class
 ):
@@ -74,29 +66,18 @@ def runner(
     Run a BMI compatible model
     """
     # keep track of info
-    metadata = {}
-
-
     # update mpi information or use rank 0
-    mpi_info = mmi.runner.initialize_mpi(mpi)
-    ports_info = mmi.runner.create_ports(port, mpi, mpi_info['rank'])
-    sockets = mmi.runner.create_sockets(ports_info)
-    model = mmi.runner.create_bmi_model(engine, bmi_class)
-
-    metadata.update(mpi_info)
-    metadata.update(ports_info)
-
-    mmi.runner.run(
-        model,
-        configfile,
-        tracker,
-        sockets,
-        global_vars,
-        output_vars,
-        interval,
-        port,
-        metadata
+    runner = mmi.runner.Runner(
+        engine=engine,
+        configfile=configfile,
+        output_vars=output_vars,
+        interval=interval,
+        pause=pause,
+        tracker=tracker,
+        port=port,
+        bmi_class=bmi_class
     )
+    runner.run()
 
 
 if __name__ == "__main__":
