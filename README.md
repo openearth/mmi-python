@@ -23,9 +23,9 @@ Metadata is in JSON format and UTF8 encoded.  It contains at least the following
 
 ``` json
 {
-  name: "variable",
-  shape: [3,3],
-  dtype: "float64"
+  "name": "variable",
+  "shape": [3,3],
+  "dtype": "float64"
 }
 
 ```
@@ -36,12 +36,12 @@ An extended example:
 
 ``` json
 {
-  name: "variable",
-  shape: [3,3],
-  dtype: "float64",
-  attributes: {
-       standard_name: "sea_surface_altiude",
-       units: "m"
+  "name": "variable",
+  "shape": [3,3],
+  "dtype": "float64",
+  "attributes": {
+       "standard_name": "sea_surface_altiude",
+       "units": "m"
   },
 }
 
@@ -51,11 +51,11 @@ With numpy slicing convention:
 
 ``` json
 {
-  name: "variable",
-  shape: [3,3],
-  dtype: "float64",
-  continuguous: "C",
-  strides: [[0,1],[0,2]]
+  "name": "variable",
+  "shape": [3,3],
+  "dtype": "float64",
+  "continuguous": "C",
+  "strides": [[0,1],[0,2]]
 }
 
 ```
