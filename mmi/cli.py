@@ -28,6 +28,7 @@ def cli(args=None):
 @click.option(
     '--interval',
     type=int,
+    default=1,
     help='publish results every <interval> timesteps'
 )
 @click.option(
@@ -58,6 +59,7 @@ def runner(
         output_vars,
         interval,
         pause,
+        mpi,
         tracker,
         port,
         bmi_class
@@ -73,6 +75,7 @@ def runner(
         output_vars=output_vars,
         interval=interval,
         pause=pause,
+        mpi=mpi,
         tracker=tracker,
         port=port,
         bmi_class=bmi_class
