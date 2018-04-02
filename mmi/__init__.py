@@ -59,6 +59,10 @@ def send_array(
         # and we're done
         return
 
+    # support single values (empty shape)
+    if isinstance(A, float) or isinstance(A, int):
+        A = np.asarray(A)
+
     # add array metadata
     md['dtype'] = str(A.dtype)
     md['shape'] = A.shape
