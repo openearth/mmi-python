@@ -35,6 +35,7 @@ class Runner(object):
             mpi=False,
             port='random',
             bmi_class='bmi.wrapper.BMIWrapper',
+            pause=False,
             *args,
             **kwargs
     ):
@@ -59,6 +60,8 @@ class Runner(object):
         self.sockets = self.create_sockets()
 
         self.model = self.create_bmi_model(engine, bmi_class)
+        if pause:
+            self.model.state = 'pause'
         self.metadata = {}
         self.fill_metadata()
 
@@ -366,6 +369,7 @@ class Runner(object):
 
         poller.register(rep, zmq.POLLIN)
         poller.register(pull, zmq.POLLIN)
+
         sockets = dict(
             poller=poller,
             rep=rep,

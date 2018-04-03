@@ -266,6 +266,23 @@ class MMIClient(IBmi):
 
         return metadata[method]
 
+    def get_time_step(self):
+        """
+        Return time step of simulation
+        """
+
+        method = "get_time_step"
+
+        A = None
+        metadata = {method: -1}
+
+        send_array(self.socket, A, metadata)
+        A, metadata = recv_array(
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout,
+            flags=self.zmq_flags)
+
+        return metadata[method]
+
     def update(self, dt):
         """
         Advance the module with timestep dt
@@ -312,5 +329,7 @@ class MMIClient(IBmi):
         return metadata[method]
 
     def subscribe(self, topic=b''):
-        """subscribe to the SUB socket, to listen for incomming variables"""
+        """subscribe to the SUB socket, to listen for incomming variables, return a stream that can be listened to."""
         self.sockets[zmq.SUB].setsockopt(zmq.SUBSCRIBE, topic)
+        poller = self.pollers[zmq.SUB]
+        return poller
