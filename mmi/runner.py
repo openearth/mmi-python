@@ -139,8 +139,6 @@ class Runner(object):
             model = wrapper_class(
                 **wrapper_kwargs
             )
-        # by default start running
-        model.state = 'play'
         return model
 
     def register(self):
