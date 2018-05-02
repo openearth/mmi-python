@@ -12,7 +12,7 @@ with open('DESCRIPTION.rst', encoding='utf-8') as f:
 
 setup(
     name="mmi",
-    version='0.3.0',
+    version='0.4.0',
     description="Model Message Interface",
     long_description=long_description,
 
