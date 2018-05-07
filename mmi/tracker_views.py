@@ -2,8 +2,8 @@ import logging
 
 import numpy as np
 import zmq
-import shapely.geometry
 import osgeo.osr
+import shapely.geometry
 
 from . import send_array, recv_array
 
