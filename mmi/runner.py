@@ -62,6 +62,10 @@ class Runner(object):
         self.model = self.create_bmi_model(engine, bmi_class)
         if pause:
             self.model.state = 'pause'
+        else:
+            # default to play if state is not present
+            if not hasattr(self.model, 'state'):
+                self.model.state = 'play'
         self.metadata = {}
         self.fill_metadata()
 
