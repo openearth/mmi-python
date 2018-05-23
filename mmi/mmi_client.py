@@ -215,6 +215,24 @@ class MMIClient(IBmi):
             self.socket, poll=self.poll, poll_timeout=self.poll_timeout,
             flags=self.zmq_flags)
 
+    def set_var_slice(self, name, start, count, var):
+        """
+        Set the variable name with the values of var
+        """
+
+        method = "set_var_slice"
+
+        A = var
+        metadata = {
+            method: name,
+            "start": start,
+            "count": count
+        }
+        send_array(self.socket, A, metadata)
+        A, metadata = recv_array(
+            self.socket, poll=self.poll, poll_timeout=self.poll_timeout,
+            flags=self.zmq_flags)
+
     def get_start_time(self):
         """
         Return start time
